@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\shared\Shared.Global.Sources\Shared.Global.Sources.csproj" />
+		<ProjectReference Include="..\..\shared\Shared.Message.Queue.Requests\Shared.Message.Queue.Requests.csproj" />
+		<ProjectReference Include="..\Services.Auth.Domain\Services.Auth.Domain.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.3" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.11" />
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+	</ItemGroup>
+
+</Project>

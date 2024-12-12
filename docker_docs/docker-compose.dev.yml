@@ -1,0 +1,127 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres_dev
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: admin1234
+      POSTGRES_DB: medical_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - dev_network
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo_dev
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: admin1234
+    ports:
+      - "27017:27017"
+    networks:
+      - dev_network
+
+  redis:
+    image: redis:latest
+    container_name: redis_dev
+    environment:
+      REDIS_PASSWORD: admin1234
+    ports:
+      - "6379:6379"
+    networks:
+      - dev_network
+    
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq_dev
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: admin1234
+    ports:
+      - "15672:15672" # Web UI
+      - "5672:5672"   # RabbitMQ port
+    networks:
+      - dev_network
+
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul_dev
+    environment:
+      CONSUL_HTTP_TOKEN: "noijknsdafjwj980flksnfnIUP098jhekrpwoerrwer=="
+    ports:
+      - "8500:8500" # Consul UI
+    networks:
+      - dev_network
+    # volumes:
+    #   - ./config/consul.hcl:/consul/config/consul.hcl
+    # command: "agent -server -bootstrap -config-dir=/consul/config"
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.95.0
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./config/otel-collector-config.yml:/etc/otel-collector-config.yml
+    ports:
+      - "8888:8888" 
+      - "8889:8889" 
+      - "13133:13133"
+      - "4317:4317"
+    networks:
+      - dev_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 40M
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - dev_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 40M
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:v1.5.0
+    container_name: node_exporter
+    command: '--path.rootfs=/host'
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - dev_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 40M
+
+networks:
+  dev_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

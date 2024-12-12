@@ -1,0 +1,1 @@
+docker-compose -f docker-compose.dev.yml -p medical_management_compose up --build -d

@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Consul" Version="1.7.14.6" />
+		<PackageReference Include="Refit" Version="8.0.0" />
+		<PackageReference Include="Refit.HttpClientFactory" Version="8.0.0" />
+		<PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
+
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
+		<PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.10.0-beta.1" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Process" Version="0.5.0-beta.7" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+	</ItemGroup>
+
+	<!-- start docker image creation -->
+	<PropertyGroup>
+		<ContainerImageTag>latest</ContainerImageTag>
+		<PublishProfile>DefaultContainer</PublishProfile>
+		<ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:8.0</ContainerBaseImage>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(RunConfiguration)' == 'http' " />
+	<ItemGroup>
+		<ContainerPort Include="80" Type="tcp" />
+		<ContainerEnviromentVariable Include="ASPNETCORE_ENVIRONMENT" Value="Production" />
+	</ItemGroup>
+	<!-- end docker image creation -->
+</Project>

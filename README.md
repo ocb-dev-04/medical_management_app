@@ -7,7 +7,9 @@ Welcome to the **.NET Microservices Application** repository! This project is an
 1. **Service Discovery with Consul**:  
    - All services register dynamically with **Consul**, enabling the API Gateway to discover and connect with them seamlessly.  
    
-   ![Consul Active Services](screenshots/consul-services.png)
+   
+<img src="screenshots/consul-services.png" alt="Consul Active Services" height="600"/>
+
 
 2. **Inter-service Communication with RabbitMQ**:  
    - Reliable and efficient communication between microservices is handled through **RabbitMQ**, ensuring event-driven architecture and asynchronous processing.  
@@ -45,14 +47,9 @@ Welcome to the **.NET Microservices Application** repository! This project is an
 9. **API Gateway**:  
    - Middleware handles query validation, routing, and enhances security.  
 
-10. **Pre-compilation of Entities for Performance**:  
-   - To enhance performance, this architecture uses **pre-compiled entities** to minimize the overhead during startup.  
-   - Entities in the database are precompiled and optimized before use, which significantly reduces the initialization time.  
-   - This helps improve the efficiency of entity framework operations, particularly in scenarios involving large-scale data retrieval and intensive queries.
-
-11. **Best Practices**:  
+10. **Best Practices**:  
    - Adheres to **SOLID**, **KISS**, and object-oriented principles.  
-   - Utilizes **precompiled entities** and **compiled queries** in EF Core for performance optimization.  
+   - Utilizes **compiled queries** in EF Core for performance optimization.  
    - Built with testability and maintainability in mind.  
 
 ## 🏗️ Architecture  

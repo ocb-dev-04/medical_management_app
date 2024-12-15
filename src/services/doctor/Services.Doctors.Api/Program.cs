@@ -15,6 +15,8 @@ if (app.Environment.IsDevelopment())
     app.CheckMigrations();
 }
 
+app.Warnup();
+
 app.UseConsultServiceRegistry();
 app.UseCustomHealthChecks();
 app.UseResponseCompression();

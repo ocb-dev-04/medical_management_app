@@ -1,14 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="CQRS.MediatR.Helper" Version="1.0.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.2" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CQRS.MediatR.Helper" Version="1.0.1" />
+		<PackageReference Include="Elastic.Clients.Elasticsearch" Version="8.16.3" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Shared.Domain\Shared.Domain.csproj" />
+	</ItemGroup>
 
 </Project>

@@ -6,9 +6,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Services.Doctors.Application.Consumers;
 using Services.Doctors.Application.Services;
+using Shared.Domain.Abstractions.Services;
 using Shared.Domain.Settings;
 using Shared.Global.Sources.Behaviors;
 using Shared.Message.Queue.Requests.Buses;
+using Shared.Global.Sources.Services;
 
 namespace Services.Doctors.Application;
 
@@ -32,12 +34,13 @@ public static class ApplicationServices
         services.AddMultiBusServices()
             .AddMessgeQueueServices();
 
+        services.AddSingleton(typeof(IElasticSearchService<>), typeof(ElasticSearchService<>));
         services.AddTransient<MessageQeueServices>();
 
         return services;
     }
 
-    public static IServiceCollection AddMessgeQueueServices(this IServiceCollection services)
+    private static IServiceCollection AddMessgeQueueServices(this IServiceCollection services)
     {
         services.AddMassTransit<IGeneralBus>(busRegConfig =>
         {

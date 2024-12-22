@@ -32,7 +32,8 @@ public static class PersistenceServices
 #endif
         });
 
-        services.AddScoped<ICredentialRepository, CredentialRepository>();
+        services.AddScoped<CredentialRepository>();
+        services.AddScoped<ICredentialRepository, CredentialDecoratorRepository>();
 
         return services;
     }

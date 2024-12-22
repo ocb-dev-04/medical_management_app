@@ -12,7 +12,7 @@ namespace Services.Auth.Persistence.Repositories;
 
 internal sealed class CredentialRepository
     : CredentialCompiledQueries,
-        ICredentialRepository
+        
 {
     private readonly AppDbContext _dbContext;
     private readonly DbSet<Credential> _table;

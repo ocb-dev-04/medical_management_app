@@ -4,6 +4,7 @@ using Elastic.Clients.Elasticsearch;
 using Shared.Domain.Abstractions.Services;
 using Shared.Common.Helper.ErrorsHandler;
 using Result = Shared.Common.Helper.ErrorsHandler.Result;
+using Elastic.Transport;
 
 namespace Shared.Global.Sources.Services;
 
@@ -21,9 +22,11 @@ public sealed class ElasticSearchService<T>
         ArgumentNullException.ThrowIfNull(options.Value, nameof(options));
 
         _elasticSettings  = options.Value;
+
         ElasticsearchClientSettings settings = new ElasticsearchClientSettings(new Uri(_elasticSettings.Url))
-            //.Authentication()
-            .DefaultIndex(_elasticSettings.DefaultIndex);
+            .DefaultIndex(_elasticSettings.DefaultIndex)
+            .Authentication(new BasicAuthentication(_elasticSettings.UserName, _elasticSettings.Passwword));
+
         _client = new ElasticsearchClient(settings);
     }
 

@@ -7,6 +7,10 @@ using Services.Doctors.Domain.Abstractions;
 using Services.Doctors.Application.Services;
 using Value.Objects.Helper.Values.Primitives;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
+using Services.Doctors.Domain.Dtos;
+using Shared.Domain.Constants;
+using Shared.Domain.Abstractions.Services;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Services.Doctors.Application.UseCases;
 
@@ -15,16 +19,20 @@ internal sealed class UpdateDoctorCommandHandler
 {
     private readonly IDoctorRepository _doctorRepository;
     private readonly MessageQeueServices _messageQeueServices;
+    private readonly IElasticSearchService<DoctorDto> _doctorSearchClient;
 
     public UpdateDoctorCommandHandler(
         IDoctorRepository doctorRepository,
-        MessageQeueServices messageQeueServices)
+        MessageQeueServices messageQeueServices,
+        IElasticSearchService<DoctorDto> doctorSearchClient)
     {
         ArgumentNullException.ThrowIfNull(doctorRepository, nameof(doctorRepository));
         ArgumentNullException.ThrowIfNull(messageQeueServices, nameof(messageQeueServices));
+        ArgumentNullException.ThrowIfNull(doctorSearchClient, nameof(doctorSearchClient));
 
         _doctorRepository = doctorRepository;
         _messageQeueServices = messageQeueServices;
+        _doctorSearchClient = doctorSearchClient;
     }
 
     public async Task<Result<DoctorResponse>> Handle(UpdateDoctorCommand request, CancellationToken cancellationToken)
@@ -49,6 +57,12 @@ internal sealed class UpdateDoctorCommandHandler
             StringObject.Create(request.Body.Specialty),
             IntegerObject.Create(request.Body.ExperienceInYears));
         await _doctorRepository.CommitAsync(cancellationToken);
+
+        await _doctorSearchClient.AddOrUpdateAsync(
+            found.Value.Id.Value.ToString(),
+            DoctorDto.Create(found.Value.Id, found.Value.Name, found.Value.Specialty, found.Value.ExperienceInYears, found.Value.AuditDates),
+            ServicesConstants.ElasticSearchDoctorIndex,
+            cancellationToken);
 
         return DoctorResponse.Map(found.Value);
     }

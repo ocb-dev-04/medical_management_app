@@ -6,6 +6,9 @@ using Services.Doctors.Domain.Errors;
 using Services.Doctors.Domain.StrongIds;
 using Services.Doctors.Application.Services;
 using Shared.Message.Queue.Requests;
+using Services.Doctors.Domain.Dtos;
+using Shared.Domain.Abstractions.Services;
+using Shared.Domain.Constants;
 
 namespace Services.Doctors.Application.UseCases;
 
@@ -14,16 +17,20 @@ internal sealed class RemoveDoctorCommandHandler
 {
     private readonly IDoctorRepository _doctorRepository;
     private readonly MessageQeueServices _messageQeueServices;
+    private readonly IElasticSearchService<DoctorDto> _doctorSearchClient;
 
     public RemoveDoctorCommandHandler(
-        IDoctorRepository doctorRepository, 
-        MessageQeueServices messageQeueServices)
+        IDoctorRepository doctorRepository,
+        MessageQeueServices messageQeueServices,
+        IElasticSearchService<DoctorDto> doctorSearchClient)
     {
         ArgumentNullException.ThrowIfNull(doctorRepository, nameof(doctorRepository));
         ArgumentNullException.ThrowIfNull(messageQeueServices, nameof(messageQeueServices));
+        ArgumentNullException.ThrowIfNull(doctorSearchClient, nameof(doctorSearchClient));
 
         _doctorRepository = doctorRepository;
         _messageQeueServices = messageQeueServices;
+        _doctorSearchClient = doctorSearchClient;
     }
 
     public async Task<Result> Handle(RemoveDoctorCommand request, CancellationToken cancellationToken)
@@ -45,6 +52,11 @@ internal sealed class RemoveDoctorCommandHandler
 
         await _doctorRepository.DeleteAsync(found.Value.Id, cancellationToken);
         await _doctorRepository.CommitAsync(cancellationToken);
+
+        await _doctorSearchClient.RemoveAsync(
+            found.Value.Id.Value.ToString(),
+            ServicesConstants.ElasticSearchDoctorIndex,
+            cancellationToken);
 
         return Result.Success();
     }

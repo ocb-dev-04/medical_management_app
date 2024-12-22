@@ -26,7 +26,7 @@ public sealed class ElasticSearchService<T>
 
         ElasticsearchClientSettings settings = new ElasticsearchClientSettings(new Uri(_elasticSettings.Url))
             .DefaultIndex(_elasticSettings.DefaultIndex)
-            .Authentication(new BasicAuthentication(_elasticSettings.UserName, _elasticSettings.Passwword));
+            .Authentication(new BasicAuthentication(_elasticSettings.UserName, _elasticSettings.Password));
 
         _client = new ElasticsearchClient(settings);
     }
@@ -54,7 +54,7 @@ public sealed class ElasticSearchService<T>
             : Result.Failure<IReadOnlyCollection<T>>();
     }
 
-    public async Task<bool> AddOrUpdateAsync(T model, string indexName, CancellationToken cancellationToken)
+    public async Task<bool> AddOrUpdateAsync(string id, T model, string indexName, CancellationToken cancellationToken)
     {
         if (!(await _client.Indices.ExistsAsync(indexName, cancellationToken)).Exists)
             await _client.Indices.CreateAsync(indexName, cancellationToken);
@@ -62,7 +62,9 @@ public sealed class ElasticSearchService<T>
         IndexResponse response = await _client.IndexAsync(
             model,
             idx
-                => idx.Index(_elasticSettings.DefaultIndex).OpType(OpType.Index),
+                => idx.Index(_elasticSettings.DefaultIndex)
+                        .Id(id)
+                        .OpType(OpType.Index),
             cancellationToken);
 
         return response.IsValidResponse;

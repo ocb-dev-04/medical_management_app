@@ -20,7 +20,7 @@ public interface IElasticSearchService<T> where T : class
     /// <param name="indexName"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task<bool> AddOrUpdateAsync(T model, string indexName, CancellationToken cancellationToken);
+    Task<bool> AddOrUpdateAsync(string id, T model, string indexName, CancellationToken cancellationToken);
 
     /// <summary>
     /// Remove a document by ID

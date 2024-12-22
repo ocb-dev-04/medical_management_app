@@ -10,6 +10,7 @@ using Services.Auth.Application.Consumers;
 using Shared.Domain.Settings;
 using Microsoft.Extensions.Options;
 using Common.Services;
+using Shared.Global.Sources;
 
 namespace Services.Auth.Application;
 
@@ -34,7 +35,8 @@ public static class ApplicationServices
         });
 
         services.AddMultiBusServices()
-            .AddMessgeQueueServices();
+            .AddMessgeQueueServices()
+            .AddCachingService();
 
         return services;
     }

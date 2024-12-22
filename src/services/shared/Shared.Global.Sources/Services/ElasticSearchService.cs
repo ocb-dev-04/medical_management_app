@@ -10,7 +10,7 @@ using Result = Shared.Common.Helper.ErrorsHandler.Result;
 
 namespace Shared.Global.Sources.Services;
 
-public sealed class ElasticSearchService<T>
+internal sealed class ElasticSearchService<T>
     : IElasticSearchService<T>
         where T : class
 {

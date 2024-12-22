@@ -11,6 +11,7 @@ using Shared.Domain.Settings;
 using Shared.Global.Sources.Behaviors;
 using Shared.Message.Queue.Requests.Buses;
 using Shared.Global.Sources.Services;
+using Shared.Global.Sources;
 
 namespace Services.Doctors.Application;
 
@@ -32,9 +33,9 @@ public static class ApplicationServices
         });
 
         services.AddMultiBusServices()
-            .AddMessgeQueueServices();
+            .AddMessgeQueueServices()
+            .AddElasticSearchService();
 
-        services.AddSingleton(typeof(IElasticSearchService<>), typeof(ElasticSearchService<>));
         services.AddTransient<MessageQeueServices>();
 
         return services;

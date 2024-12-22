@@ -3,7 +3,6 @@ using Services.Auth.Domain.Errors;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
-using Services.Auth.Domain.Abstractions;
 using Services.Auth.Persistence.Context;
 using Shared.Common.Helper.ErrorsHandler;
 using Value.Objects.Helper.Values.Domain;
@@ -11,7 +10,7 @@ using Value.Objects.Helper.Values.Domain;
 namespace Services.Auth.Persistence.Repositories;
 
 internal sealed class CredentialRepository
-    : CredentialCompiledQueries,
+    : CredentialCompiledQueries
         
 {
     private readonly AppDbContext _dbContext;

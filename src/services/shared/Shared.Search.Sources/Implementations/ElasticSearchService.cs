@@ -3,12 +3,11 @@ using Shared.Domain.Settings;
 using System.Linq.Expressions;
 using Microsoft.Extensions.Options;
 using Elastic.Clients.Elasticsearch;
+using Shared.Search.Sources.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
-using Shared.Domain.Abstractions.Services;
+namespace Shared.Search.Sources.Implementations;
 
 using Result = Shared.Common.Helper.ErrorsHandler.Result;
-
-namespace Shared.Global.Sources.Services;
 
 public sealed class ElasticSearchService<T>
     : IElasticSearchService<T>

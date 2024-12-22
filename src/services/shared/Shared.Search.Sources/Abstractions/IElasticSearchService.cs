@@ -1,6 +1,6 @@
 ﻿using Shared.Common.Helper.ErrorsHandler;
 
-namespace Shared.Domain.Abstractions.Services;
+namespace Shared.Search.Sources.Abstractions;
 
 public interface IElasticSearchService<T> where T : class
 {

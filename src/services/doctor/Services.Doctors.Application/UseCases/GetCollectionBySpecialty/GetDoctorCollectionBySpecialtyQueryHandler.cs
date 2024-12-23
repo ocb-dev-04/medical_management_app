@@ -1,7 +1,7 @@
-﻿using Services.Doctors.Domain.Dtos;
+﻿using Shared.Domain.Constants;
+using Services.Doctors.Domain.Dtos;
 using Shared.Common.Helper.ErrorsHandler;
-using Services.Doctors.Domain.Abstractions;
-using Value.Objects.Helper.Values.Primitives;
+using Shared.Domain.Abstractions.Services;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
 
 namespace Services.Doctors.Application.UseCases;
@@ -9,22 +9,27 @@ namespace Services.Doctors.Application.UseCases;
 internal sealed class GetDoctorCollectionBySpecialtyQueryHandler
     : IQueryHandler<GetDoctorCollectionBySpecialtyQuery, IEnumerable<DoctorDto>>
 {
-    private readonly IDoctorRepository _doctorRepository;
+    private readonly IElasticSearchService<DoctorDto> _doctorSearchClient;
 
-    public GetDoctorCollectionBySpecialtyQueryHandler(IDoctorRepository doctorRepository)
+    public GetDoctorCollectionBySpecialtyQueryHandler(
+        IElasticSearchService<DoctorDto> doctorSearchClient)
     {
-        ArgumentNullException.ThrowIfNull(doctorRepository, nameof(doctorRepository));
+        ArgumentNullException.ThrowIfNull(doctorSearchClient, nameof(doctorSearchClient));
 
-        _doctorRepository = doctorRepository;
+        _doctorSearchClient = doctorSearchClient;
     }
 
     public async Task<Result<IEnumerable<DoctorDto>>> Handle(GetDoctorCollectionBySpecialtyQuery request, CancellationToken cancellationToken)
     {
-        IReadOnlyCollection<DoctorDto> collection = await _doctorRepository.CollectionBySpecialtyAsync(
-            StringObject.Create(request.Specialty), 
-            request.PageNumber, 
+        Result<IReadOnlyCollection<DoctorDto>> collection = await _doctorSearchClient.SearchAsync(
+            f => f.Specialty,
+            request.Specialty,
+            ServicesConstants.ElasticSearchDoctorIndex,
             cancellationToken);
 
-        return Result.Success(collection.AsEnumerable());
+        if (collection.IsFailure)
+            return Result.Failure<IEnumerable<DoctorDto>>(collection.Error);
+
+        return Result.Success(collection.Value.AsEnumerable());
     }
 }

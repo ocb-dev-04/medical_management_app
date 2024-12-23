@@ -55,9 +55,6 @@ services:
       - "8500:8500" # Consul UI
     networks:
       - dev_network
-    # volumes:
-    #   - ./config/consul.hcl:/consul/config/consul.hcl
-    # command: "agent -server -bootstrap -config-dir=/consul/config"
 
   otel-collector:
     image: otel/opentelemetry-collector:0.95.0
@@ -115,6 +112,20 @@ services:
           cpus: "0.1"
           memory: 40M
 
+  elasticsearch:
+    container_name: els
+    image: elasticsearch:8.17.0
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=admin1234
+    networks:
+      - dev_network
+
 networks:
   dev_network:
     driver: bridge
@@ -125,3 +136,4 @@ volumes:
     driver: local
   grafana-data:
     driver: local
+  elasticsearch-data:

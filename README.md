@@ -7,7 +7,7 @@ Welcome to the **.NET Microservices Application** repository! This project is an
 1. **Service Discovery with Consul**:  
    - All services register dynamically with **Consul**, enabling the API Gateway to discover and connect with them seamlessly.  
    
-   ![Consul Active Services](screenshots/consul-services.png)
+   <img src="screenshots/consul-services.png" alt="Consul Active Services" height="600"/>
 
 2. **Inter-service Communication with RabbitMQ**:  
    - Reliable and efficient communication between microservices is handled through **RabbitMQ**, ensuring event-driven architecture and asynchronous processing.  
@@ -45,15 +45,22 @@ Welcome to the **.NET Microservices Application** repository! This project is an
 9. **API Gateway**:  
    - Middleware handles query validation, routing, and enhances security.  
 
-10. **Pre-compilation of Entities for Performance**:  
-   - To enhance performance, this architecture uses **pre-compiled entities** to minimize the overhead during startup.  
-   - Entities in the database are precompiled and optimized before use, which significantly reduces the initialization time.  
-   - This helps improve the efficiency of entity framework operations, particularly in scenarios involving large-scale data retrieval and intensive queries.
-
-11. **Best Practices**:  
+10. **Best Practices**:  
    - Adheres to **SOLID**, **KISS**, and object-oriented principles.  
-   - Utilizes **precompiled entities** and **compiled queries** in EF Core for performance optimization.  
+   - Utilizes **compiled queries** in EF Core for performance optimization.  
    - Built with testability and maintainability in mind.  
+
+11. **Full-Text Search with Elasticsearch**:  
+   - Integrated **Elasticsearch** for advanced search capabilities across services.  
+   - Allows for powerful and fast full-text search on structured and unstructured data.  
+   - Supports advanced querying and filtering, making it ideal for services such as **Doctors** and **Diagnoses** to quickly retrieve records based on multiple search criteria.
+   - Elasticsearch provides scalability and flexibility in querying large datasets, ensuring low-latency responses.
+
+12. **Caching and Decorator Pattern**:  
+   - **Decorator Pattern** applied to repository layer to enhance caching functionality.  
+   - Utilizes **Redis** and **IDistributedCache** to cache frequently accessed data, improving performance and reducing database load.  
+   - The decorator ensures that repositories can store and retrieve data from the cache seamlessly, falling back to the database if data is not found in the cache.  
+   - This pattern promotes clean separation of concerns and allows easy extension of caching functionality across services.
 
 ## 🏗️ Architecture  
 
@@ -75,13 +82,25 @@ Welcome to the **.NET Microservices Application** repository! This project is an
 4. **Secure Access**:  
    - All API requests are validated and authenticated with **JWT**, ensuring secure communication.  
 
+5. **Full-Text Search**:  
+   - Elasticsearch indexes are used to provide fast and accurate full-text search capabilities across various services.
+   - Allows the system to handle complex queries on large datasets, enhancing search functionality within **Doctors** and **Diagnoses** services.  
+   - Elasticsearch integrates seamlessly with the backend, making it easy to query for medical records, doctor schedules, and other relevant data efficiently.  
+
+6. **Caching with Redis and Decorator Pattern**:  
+   - Repositories are enhanced with caching using **Redis** via the **IDistributedCache** interface.  
+   - The **Decorator Pattern** ensures that each repository can cache its results, improving performance by reducing the need for frequent database queries.  
+   - If the requested data is not in the cache, the repository fetches it from the database and stores it in Redis for future use.
+
 ## 🤝 Why Choose This Architecture?  
 
 This project is designed for enterprise-grade applications, where scalability, reliability, and maintainability are critical. By combining microservices architecture with clean and hexagonal design principles, it ensures:  
 - High performance and low coupling.  
 - Seamless scaling of individual services.  
 - Future-proof architecture for evolving business needs.  
+- Enhanced search capabilities with **Elasticsearch**, improving usability and performance.  
+- Improved response times and reduced database load using **Redis** caching with the **Decorator Pattern**.
 
 ---
 
-Feel free to explore the repository and let me know if you’re interested in collaborating or learning more about the system. Together, we can build innovative and reliable solutions!  
+Feel free to explore the repository and let me know if you’re interested in collaborating or learning more about the system. Together, we can build innovative and reliable solutions!

@@ -109,6 +109,26 @@ services:
           cpus: "0.1"
           memory: 40M
 
+  elasticsearch:
+    container_name: els
+    image: elasticsearch:8.17.0
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=admin1234
+    networks:
+      prod_network:
+        ipv4_address: 172.20.0.10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 100M
+
 networks:
   prod_network:
     driver: bridge

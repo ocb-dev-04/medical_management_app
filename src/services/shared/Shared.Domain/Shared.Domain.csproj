@@ -1,16 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Common.Services" Version="1.0.2" />
-    <PackageReference Include="CQRS.MediatR.Helper" Version="1.0.1" />
-    <PackageReference Include="Shared.Common.Helper" Version="1.0.1" />
-    <PackageReference Include="Value.Objects.Helper" Version="1.0.2" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Common.Services" Version="1.0.2" />
+		<PackageReference Include="CQRS.MediatR.Helper" Version="1.0.1" />
+		<PackageReference Include="Shared.Common.Helper" Version="1.0.1" />
+		<PackageReference Include="Value.Objects.Helper" Version="1.0.2" />
+	</ItemGroup>
 
 </Project>

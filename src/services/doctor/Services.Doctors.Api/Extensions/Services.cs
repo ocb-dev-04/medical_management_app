@@ -44,6 +44,10 @@ public static class Services
             .BindConfiguration(nameof(MessageQueueSettings))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddOptions<ElasticSettings>()
+            .BindConfiguration(nameof(ElasticSettings))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         services.AddPersistenceServices()
             .AddApplicationServices()

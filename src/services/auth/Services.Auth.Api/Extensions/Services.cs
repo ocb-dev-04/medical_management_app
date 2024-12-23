@@ -54,7 +54,7 @@ public static class Services
             .ValidateOnStart();
 
         services.AddPersistenceServices()
-            .AddApplicationServices()
+            .AddApplicationServices(configuration)
             .AddPresentationServices();
 
         services.AddSharedCommonProviders()

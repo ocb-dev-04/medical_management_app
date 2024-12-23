@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
+using Shared.Common.Helper.Extensions;
 using Services.Auth.Domain.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
 using Value.Objects.Helper.Values.Domain;
@@ -12,7 +13,8 @@ internal sealed class CredentialDecoratorRepository : ICredentialRepository
 {
     private readonly ICachingService _cachingService;
     private readonly CredentialRepository _credentialRepository;
-
+    private static readonly TimeSpan _defaultTimeSpan =
+                TimeSpan.FromHours(1);
     public CredentialDecoratorRepository(
         ICachingService cachingService,
         CredentialRepository credentialRepository)
@@ -27,13 +29,43 @@ internal sealed class CredentialDecoratorRepository : ICredentialRepository
     /// <inheritdoc/>
     public async Task<Result<Credential>> ByIdAsync(CredentialId id, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        Result<Credential> found = await _cachingService.GetOrCreateAsync<Credential>(
+                id.Value.ToString(),
+                async () =>
+                {
+                    Result<Credential> found = await _credentialRepository.ByIdAsync(id, cancellationToken);
+                    if (found.IsFailure)
+                        return Result.Failure<Credential>(found.Error);
+
+                    return found;
+                },
+                _defaultTimeSpan,
+                cancellationToken);
+
+        _credentialRepository.Attach(found.Value);
+        return found;
     }
 
     /// <inheritdoc/>
-    public Task<Result<Credential>> ByEmailAsync(EmailAddress email, bool tracking = true, CancellationToken cancellationToken = default)
+    public async Task<Result<Credential>> ByEmailAsync(EmailAddress email, bool tracking = true, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        Result<Credential> found = await _cachingService.GetOrCreateAsync<Credential>(
+                email.Value.ToString(),
+                async () =>
+                {
+                    Result<Credential> found = await _credentialRepository.ByEmailAsync(email, tracking, cancellationToken);
+                    if (found.IsFailure)
+                        return Result.Failure<Credential>(found.Error);
+
+                    return found;
+                },
+                _defaultTimeSpan,
+                cancellationToken);
+        
+        if(tracking)
+            _credentialRepository.Attach(found.Value);
+
+        return found;
     }
 
     /// <inheritdoc/>
@@ -41,15 +73,19 @@ internal sealed class CredentialDecoratorRepository : ICredentialRepository
         => _credentialRepository.ExistAsync(filter, cancellationToken);
 
     /// <inheritdoc/>
-    public Task CreateAsync(Credential model, CancellationToken cancellationToken)
+    public async Task CreateAsync(Credential model, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        await _credentialRepository.CreateAsync(model, cancellationToken);
+        await _cachingService.CreateAsync(model.Id.Value.ToString(), model.Serialize(), _defaultTimeSpan, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task<Result> DeleteAsync(CredentialId id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(CredentialId id, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        await _credentialRepository.DeleteAsync(id, cancellationToken);
+        await _cachingService.RemoveByKeyAsync(id.Value.ToString(), cancellationToken);
+
+        return Result.Success();
     }
 
     /// <inheritdoc/>

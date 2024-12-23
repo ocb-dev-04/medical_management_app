@@ -34,7 +34,7 @@ internal sealed class CachingService : ICachingService
         if (!string.IsNullOrEmpty(data))
             return JsonConvert.DeserializeObject<T>(data, _jsonSerializerSettings);
 
-        Result<T> getData = await factory.Invoke();
+        Result<T> getData = await factory();
         if (getData.IsFailure)
             return Result.Failure<T>(getData.Error);
 

@@ -71,6 +71,10 @@ internal sealed class CredentialRepository
             await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public void Dispose()
         => _dbContext.Dispose();
+
+    public void Attach(Credential entity)
+        => _dbContext.Set<Credential>().Attach(entity);
 }

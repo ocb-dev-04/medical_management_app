@@ -11,12 +11,13 @@ using Shared.Domain.Settings;
 using Microsoft.Extensions.Options;
 using Common.Services;
 using Shared.Global.Sources;
+using Microsoft.Extensions.Configuration;
 
 namespace Services.Auth.Application;
 
 public static class ApplicationServices
 {
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<TokenProvider>();
         services.AddSingleton<JwtSecurityTokenHandler>();
@@ -36,7 +37,7 @@ public static class ApplicationServices
 
         services.AddMultiBusServices()
             .AddMessgeQueueServices()
-            .AddCachingService();
+            .AddCachingService(configuration);
 
         return services;
     }

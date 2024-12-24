@@ -179,4 +179,6 @@ volumes:
   postgres_data:
   prometheus-data:
     driver: local
+  grafana-data:
+    driver: local
   elasticsearch-data:

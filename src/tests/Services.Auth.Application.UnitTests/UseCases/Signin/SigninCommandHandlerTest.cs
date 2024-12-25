@@ -13,8 +13,9 @@ using Value.Objects.Helper.Values.Domain;
 using Services.Auth.Domain.Abstractions.Providers;
 using Bogus;
 using Microsoft.AspNetCore.Http;
+using Value.Objects.Helper.Values.Primitives;
 
-namespace Services.Auth.Application.UnitTests.UseCases;
+namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 
 public sealed class SigninCommandHandlerTest
 {
@@ -39,6 +40,42 @@ public sealed class SigninCommandHandlerTest
 
         _jwtSettingsMock = new();
         _jwtSecurityTokenHandlerMock = new();
+
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnSuccessResult()
+    {
+        // arrange
+        SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
+        SigninCommandHandler handle = new SigninCommandHandler(
+            _credentialRepositoryMock.Object,
+            _hashingServiceMock.Object,
+            _tokenProviderMock.Object,
+            _jwtSettingsMock.Object,
+            _jwtSecurityTokenHandlerMock.Object);
+
+        Credential _exampleCredential = Credential.Create(
+            EmailAddress.Create(_faker.Person.Email).Value,
+            StringObject.Create(ValidPassword),
+            _hashingServiceMock.Object);
+
+        _credentialRepositoryMock.Setup(
+            x => x.ByEmailAsync(
+                It.IsAny<EmailAddress>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<Credential>(_exampleCredential));
+
+        _hashingServiceMock.Setup(
+            x => x.Hash(It.IsAny<string>()))
+            .Returns(ValidPassword);
+
+        // act
+        Result<SigninResponse> result = await handle.Handle(command, default);
+
+        // assert
+        result.IsSuccess.Should().BeTrue();
     }
 
     [Fact]
@@ -86,5 +123,42 @@ public sealed class SigninCommandHandlerTest
         // assert
         result.IsFailure.Should().BeTrue();
         result.Error.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailureResult_WrongPassword()
+    {
+        // arrange
+        SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
+        SigninCommandHandler handle = new SigninCommandHandler(
+            _credentialRepositoryMock.Object,
+            _hashingServiceMock.Object,
+            _tokenProviderMock.Object,
+            _jwtSettingsMock.Object,
+            _jwtSecurityTokenHandlerMock.Object);
+
+        Credential _exampleCredential = Credential.Create(
+            EmailAddress.Create(_faker.Person.Email).Value,
+            StringObject.Create(_faker.Internet.Password(20)),
+            _hashingServiceMock.Object);
+
+        _credentialRepositoryMock.Setup(
+            x => x.ByEmailAsync(
+                It.IsAny<EmailAddress>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<Credential>(_exampleCredential));
+
+        _hashingServiceMock.Setup(
+            x => x.Hash(It.IsAny<string>()))
+            .Returns(_faker.Internet.Password(20));
+
+        // act
+        Result<SigninResponse> result = await handle.Handle(command, default);
+
+        // assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        result.Error.Should().Be(CredentialErrors.WrongPassword);
     }
 }

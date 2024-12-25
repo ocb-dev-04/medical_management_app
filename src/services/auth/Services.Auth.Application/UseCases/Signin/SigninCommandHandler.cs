@@ -5,6 +5,7 @@ using Services.Auth.Application.Providers;
 using Services.Auth.Application.Settings;
 using Services.Auth.Domain.Abstractions;
 using Services.Auth.Domain.Entities;
+using Services.Auth.Domain.Errors;
 using Shared.Common.Helper.ErrorsHandler;
 using Shared.Common.Helper.Providers;
 using System.IdentityModel.Tokens.Jwt;
@@ -60,6 +61,10 @@ internal sealed class SigninCommandHandler
         Result<Credential> found = await _credentialRepository.ByEmailAsync(requestEmailResult.Value, cancellationToken: cancellationToken);
         if (found.IsFailure)
             return Result.Failure<SigninResponse>(found.Error);
+
+        string hashedValueResult = _hashService.Hash(request.Password);
+        if(!found.Value.Password.Value.Equals(hashedValueResult))
+            return Result.Failure<SigninResponse>(CredentialErrors.WrongPassword);
 
         Result<string> token = _tokenProvider.BuildJwt(
             found.Value, 

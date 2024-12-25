@@ -2,7 +2,6 @@
 using Shared.Domain.Constants;
 using FluentValidation.TestHelper;
 using Services.Auth.Application.UseCases;
-using System.ComponentModel.DataAnnotations;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 

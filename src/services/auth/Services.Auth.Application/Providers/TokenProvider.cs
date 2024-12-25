@@ -1,18 +1,20 @@
 ﻿using System.Text;
 using System.Security.Claims;
 
-using Shared.Common.Helper.Providers;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Primitives;
-using Shared.Common.Helper.ErrorsHandler;
 using Services.Auth.Domain.Entities;
-using System.IdentityModel.Tokens.Jwt;
+using Services.Auth.Domain.Settings;
+using Shared.Common.Helper.Providers;
 using Microsoft.IdentityModel.Tokens;
-using Services.Auth.Application.Settings;
+using Microsoft.Extensions.Primitives;
+using System.IdentityModel.Tokens.Jwt;
+using Shared.Common.Helper.ErrorsHandler;
+using Services.Auth.Domain.Abstractions.Providers;
 
 namespace Services.Auth.Application.Providers;
 
-internal sealed class TokenProvider
+internal sealed class TokenProvider 
+    : ITokenProvider
 {
     private static readonly Error _authoritationHeaderNotFound
         = Error.NotFound("authoritationHeaderNotFound", "The jwt was not found");
@@ -20,7 +22,7 @@ internal sealed class TokenProvider
     private static readonly string _headerAuthKey = "Authorization";
     private static readonly string _securityAlgorithm = SecurityAlgorithms.HmacSha256Signature;
 
-    internal Result<string> BuildJwt(
+    public string BuildJwt(
         in Credential model,
         in JwtSettings jwtSettings,
         in JwtSecurityTokenHandler jwtSecurityTokenHandler)
@@ -50,7 +52,7 @@ internal sealed class TokenProvider
         return jwtSecurityTokenHandler.WriteToken(tokenDescriptor);
     }
 
-    internal Result<Guid> ReadJwt(
+    public Result<Guid> ReadJwt(
         in JwtSettings jwtSettings,
         in JwtSecurityTokenHandler jwtSecurityTokenHandler,
         in HttpRequestProvider httpRequestProvider)

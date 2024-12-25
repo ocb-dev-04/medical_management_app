@@ -10,7 +10,7 @@ using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Services.Auth.Application.Settings;
+using Services.Auth.Domain.Settings;
 using Shared.Common.Helper;
 using Common.Services;
 using Shared.Consul.Configuration;

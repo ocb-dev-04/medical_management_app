@@ -1,6 +1,6 @@
 ﻿using Common.Services.Hashing.Abstractions;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
-using Services.Auth.Domain.Abstractions;
+using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.StrongIds;

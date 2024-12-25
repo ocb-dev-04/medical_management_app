@@ -1,9 +1,9 @@
 ﻿using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
-using Services.Auth.Domain.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
+using Services.Auth.Domain.Abstractions.Repositories;
 
 namespace Services.Auth.Application.UseCases;
 

@@ -2,28 +2,31 @@
 using Shared.Domain.Constants;
 using FluentValidation.TestHelper;
 using Services.Auth.Application.UseCases;
+using System.ComponentModel.DataAnnotations;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 
 public sealed class SigninCommandValidatorTest
 {
     private readonly Faker _faker;
+    private readonly SigninCommandValidator _validator;
+
     private const string ValidPassword = "Qwerty1234@";
 
     public SigninCommandValidatorTest()
     {
         _faker = new();
+        _validator = new SigninCommandValidator();
     }
 
     [Fact]
     public void SigninCommandValidator_Should_AllOk()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.ShouldNotHaveAnyValidationErrors();
@@ -33,11 +36,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Email_Invalid()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email.Replace('@', '$'), ValidPassword);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.ShouldHaveValidationErrorFor(x => x.Email);
@@ -47,11 +49,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Email_CantBeEmpty()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(string.Empty, ValidPassword);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.FieldCantBeEmpty));
@@ -61,11 +62,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Email_RequiredOrCantBeNull()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(null, ValidPassword);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.RequiredField));
@@ -75,11 +75,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Email_ToLong()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand($"{_faker.Random.String(100)}@test.com", ValidPassword);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.LongField));
@@ -89,11 +88,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_CantBeEmpty()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, string.Empty);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.FieldCantBeEmpty));
@@ -103,11 +101,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_RequiredOrCantBeNull()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, null);
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.RequiredField));
@@ -117,11 +114,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_UppercaseLetterRequired()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, "qwerty1234@");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.UppercaseLetterRequired));
@@ -131,11 +127,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_LowercaseLetterRequired()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, "QWERTY1234@");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.LowercaseLetterRequired));
@@ -145,11 +140,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_DigitRequired()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, "Qwerty@");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.DigitRequired));
@@ -159,11 +153,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_SpecialCharRequired()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, "Qwerty1234");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.DigitRequired));
@@ -173,11 +166,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_ToShort()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, "Qw1@");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.ShortField));
@@ -187,11 +179,10 @@ public sealed class SigninCommandValidatorTest
     public void SigninCommandValidator_Should_Password_ToLong()
     {
         // arrange
-        SigninCommandValidator validator = new SigninCommandValidator();
         SigninCommand command = new SigninCommand(_faker.Person.Email, $"Qwerty1234@{_faker.Random.String(64)}");
 
         // act
-        TestValidationResult<SigninCommand> result = validator.TestValidate(command);
+        TestValidationResult<SigninCommand> result = _validator.TestValidate(command);
 
         // assert
         result.Errors.Any(a => a.Equals(ValidationConstants.LongField));

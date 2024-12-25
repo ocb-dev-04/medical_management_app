@@ -28,6 +28,7 @@ public sealed class SigninCommandHandlerTest
     private readonly Mock<IOptions<JwtSettings>> _jwtSettingsMock;
     private readonly Mock<JwtSecurityTokenHandler> _jwtSecurityTokenHandlerMock;
 
+    private readonly SigninCommandHandler _handler;
     private const string ValidPassword = "Qwerty1234@"; // Bogus crashes when trying to create a password using a regular expression pattern
 
     public SigninCommandHandlerTest()
@@ -41,6 +42,13 @@ public sealed class SigninCommandHandlerTest
         _jwtSettingsMock = new();
         _jwtSecurityTokenHandlerMock = new();
 
+        _handler = new SigninCommandHandler(
+            _credentialRepositoryMock.Object,
+            _hashingServiceMock.Object,
+            _tokenProviderMock.Object,
+            _jwtSettingsMock.Object,
+            _jwtSecurityTokenHandlerMock.Object);
+
     }
 
     [Fact]
@@ -48,13 +56,6 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
-        SigninCommandHandler handle = new SigninCommandHandler(
-            _credentialRepositoryMock.Object,
-            _hashingServiceMock.Object,
-            _tokenProviderMock.Object,
-            _jwtSettingsMock.Object,
-            _jwtSecurityTokenHandlerMock.Object);
-
         Credential _exampleCredential = Credential.Create(
             EmailAddress.Create(_faker.Person.Email).Value,
             StringObject.Create(ValidPassword),
@@ -72,7 +73,7 @@ public sealed class SigninCommandHandlerTest
             .Returns(ValidPassword);
 
         // act
-        Result<SigninResponse> result = await handle.Handle(command, default);
+        Result<SigninResponse> result = await _handler.Handle(command, default);
 
         // assert
         result.IsSuccess.Should().BeTrue();
@@ -83,13 +84,6 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword); 
-        SigninCommandHandler handle = new SigninCommandHandler(
-            _credentialRepositoryMock.Object,
-            _hashingServiceMock.Object,
-            _tokenProviderMock.Object,
-            _jwtSettingsMock.Object,
-            _jwtSecurityTokenHandlerMock.Object);
-
         _credentialRepositoryMock.Setup(
             x => x.ByEmailAsync(
                 It.IsAny<EmailAddress>(),
@@ -98,7 +92,7 @@ public sealed class SigninCommandHandlerTest
             .ReturnsAsync(Result.Failure<Credential>(CredentialErrors.EmailNotFound));
 
         // act
-        Result<SigninResponse> result = await handle.Handle(command, default);
+        Result<SigninResponse> result = await _handler.Handle(command, default);
 
         // assert
         result.IsFailure.Should().BeTrue();
@@ -110,15 +104,9 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email.Replace('@', '$'), ValidPassword);
-        SigninCommandHandler handle = new SigninCommandHandler(
-            _credentialRepositoryMock.Object,
-            _hashingServiceMock.Object,
-            _tokenProviderMock.Object,
-            _jwtSettingsMock.Object,
-            _jwtSecurityTokenHandlerMock.Object);
 
         // act
-        Result<SigninResponse> result = await handle.Handle(command, default);
+        Result<SigninResponse> result = await _handler.Handle(command, default);
 
         // assert
         result.IsFailure.Should().BeTrue();
@@ -130,13 +118,6 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
-        SigninCommandHandler handle = new SigninCommandHandler(
-            _credentialRepositoryMock.Object,
-            _hashingServiceMock.Object,
-            _tokenProviderMock.Object,
-            _jwtSettingsMock.Object,
-            _jwtSecurityTokenHandlerMock.Object);
-
         Credential _exampleCredential = Credential.Create(
             EmailAddress.Create(_faker.Person.Email).Value,
             StringObject.Create(_faker.Internet.Password(20)),
@@ -154,7 +135,7 @@ public sealed class SigninCommandHandlerTest
             .Returns(_faker.Internet.Password(20));
 
         // act
-        Result<SigninResponse> result = await handle.Handle(command, default);
+        Result<SigninResponse> result = await _handler.Handle(command, default);
 
         // assert
         result.IsFailure.Should().BeTrue();

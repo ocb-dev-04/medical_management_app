@@ -1,16 +1,16 @@
 ﻿using Moq;
 using FluentAssertions;
-using Services.Auth.Application.UseCases;
-using Services.Auth.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Services.Auth.Domain.Errors;
+using Services.Auth.Domain.Entities;
+using Services.Auth.Application.UseCases;
 using Shared.Common.Helper.ErrorsHandler;
 using Value.Objects.Helper.Values.Domain;
-using Microsoft.AspNetCore.Http;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 
 public sealed class SigninCommandHandlerTest
-    : BaseConfiguration
+    : BaseTestSharedConfiguration
 {
     private readonly SigninCommandHandler _handler;
     
@@ -52,13 +52,8 @@ public sealed class SigninCommandHandlerTest
     public async Task Handle_Should_ReturnFailureResult_WhenEmailNotFound()
     {
         // arrange
-        SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword); 
-        _credentialRepositoryMock.Setup(
-            x => x.ByEmailAsync(
-                It.IsAny<EmailAddress>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Failure<Credential>(CredentialErrors.EmailNotFound));
+        SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
+        Set_Credential_ByEmailAsync_NotFoundFailure();
 
         // act
         Result<SigninResponse> result = await _handler.Handle(command, default);
@@ -88,13 +83,7 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
-
-        _credentialRepositoryMock.Setup(
-            x => x.ByEmailAsync(
-                It.IsAny<EmailAddress>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<Credential>(_validCredential));
+        Set_Credential_ByEmailAsync_Success();
 
         _hashingServiceMock.Setup(
             x => x.Hash(It.IsAny<string>()))

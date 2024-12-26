@@ -1,37 +1,23 @@
-﻿using Moq;
-using Bogus;
-using FluentAssertions;
+﻿using FluentAssertions;
+using Microsoft.AspNetCore.Http;
+using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.Entities;
-using Services.Auth.Domain.StrongIds;
 using Value.Objects.Helper.Values.Domain;
 using Services.Auth.Application.UseCases;
 using Shared.Common.Helper.ErrorsHandler;
-using Common.Services.Hashing.Abstractions;
 using Value.Objects.Helper.Values.Primitives;
-using Services.Auth.Domain.Abstractions.Repositories;
-using Microsoft.AspNetCore.Http;
-using Services.Auth.Domain.Errors;
 
 namespace Services.Auth.Application.UnitTests.UseCases.GetById;
 
 public sealed class GetCredentialByIdQueryHandlerTest
+    : BaseTestSharedConfiguration
 {
-    private readonly Faker _faker;
-
-    private readonly Mock<ICredentialRepository> _credentialRepositoryMock;
-    private readonly Mock<IHashingService> _hashingServiceMock;
-
     private readonly GetCredentialByIdQuery _validQuery;
     private readonly GetCredentialByIdQueryHandler _handler;
     private readonly Credential _exampleCredential;
 
     public GetCredentialByIdQueryHandlerTest()
     {
-        _faker = new();
-
-        _credentialRepositoryMock = new();
-        _hashingServiceMock = new();
-
         _exampleCredential = Credential.Create(
             EmailAddress.Create(_faker.Person.Email).Value,
             StringObject.Create(_faker.Internet.Password(20)),
@@ -45,11 +31,7 @@ public sealed class GetCredentialByIdQueryHandlerTest
     public async Task Handle_Should_ReturnSuccessResult()
     {
         // arrange
-        _credentialRepositoryMock.Setup(
-                x => x.ByIdAsync(
-                    It.IsAny<CredentialId>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result.Success(_exampleCredential));
+        Set_Credential_ByIdAsync_Success();
 
         // act
         Result<CredentialResponse> result = await _handler.Handle(_validQuery, default);
@@ -63,11 +45,7 @@ public sealed class GetCredentialByIdQueryHandlerTest
     {
         // arrange
         GetCredentialByIdQuery query = new GetCredentialByIdQuery(Guid.NewGuid());
-        _credentialRepositoryMock.Setup(
-                x => x.ByIdAsync(
-                    It.IsAny<CredentialId>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result.Failure<Credential>(CredentialErrors.NotFound));
+        Set_Credential_ByIdAsync_NotFoundFailure();
 
         // act
         Result result = await _handler.Handle(query, default);

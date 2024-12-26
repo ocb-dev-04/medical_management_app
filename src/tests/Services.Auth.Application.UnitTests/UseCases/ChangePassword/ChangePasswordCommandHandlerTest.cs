@@ -11,7 +11,7 @@ using Shared.Common.Helper.ErrorsHandler;
 namespace Services.Auth.Application.UnitTests.UseCases.ChangePassword;
 
 public sealed class ChangePasswordCommandHandlerTest
-    : BaseConfiguration
+    : BaseTestSharedConfiguration
 {
     private readonly ChangePasswordCommand _validCommand;
     private readonly ChangePasswordCommandHandler _handler;
@@ -33,7 +33,7 @@ public sealed class ChangePasswordCommandHandlerTest
     public async Task Handle_Should_ReturnSuccessResult()
     {
         // arrange
-        Set_Provider_GetCoontextCurrentUser_Success();
+        Set_Provider_GetContextCurrentUser_Success();
         Set_Credential_ByIdAsync_Success();
         Set_Hashing_Verify_AsTrue();
 
@@ -64,7 +64,7 @@ public sealed class ChangePasswordCommandHandlerTest
     public async Task Handle_Should_ReturnFailureResult_WhenIdWasNotFound()
     {
         // arrange
-        Set_Provider_GetCoontextCurrentUser_Success();
+        Set_Provider_GetContextCurrentUser_Success();
         _credentialRepositoryMock.Setup(
                 x => x.ByIdAsync(
                     It.IsAny<CredentialId>(),
@@ -84,7 +84,7 @@ public sealed class ChangePasswordCommandHandlerTest
     public async Task Handle_Should_ReturnFailureResult_WhenPasswordIsWrong()
     {
         // arrange
-        Set_Provider_GetCoontextCurrentUser_Success();
+        Set_Provider_GetContextCurrentUser_Success();
         Set_Credential_ByIdAsync_Success();
         _hashingServiceMock.Setup(
                 x => x.Verify(

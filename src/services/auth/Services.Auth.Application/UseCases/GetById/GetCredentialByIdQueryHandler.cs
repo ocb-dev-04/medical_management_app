@@ -23,7 +23,7 @@ internal sealed class GetCredentialByIdQueryHandler
     {
         Result<CredentialId> credentialId = CredentialId.Create(request.Id);
         if (credentialId.IsFailure)
-            return Result.Failure<CredentialResponse>(CredentialErrors.NotFound);
+            return Result.Failure<CredentialResponse>(credentialId.Error);
 
         Result<Credential> found = await _credentialRepository.ByIdAsync(credentialId.Value, cancellationToken);
         if(found.IsFailure)

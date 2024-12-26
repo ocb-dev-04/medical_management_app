@@ -1,7 +1,9 @@
 ﻿using Moq;
 using Bogus;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Shared.Common.Helper.Models;
+using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
 using Services.Auth.Application.UseCases;
@@ -11,8 +13,6 @@ using Common.Services.Hashing.Abstractions;
 using Value.Objects.Helper.Values.Primitives;
 using Shared.Common.Helper.Abstractions.Providers;
 using Services.Auth.Domain.Abstractions.Repositories;
-using Microsoft.AspNetCore.Http;
-using Services.Auth.Domain.Errors;
 
 namespace Services.Auth.Application.UnitTests.UseCases.ChangePassword;
 
@@ -45,6 +45,11 @@ public sealed class ChangePasswordCommandHandlerTest
         string newValidPassword = "Qwerty1234."; // Bogus crashes when trying to create a password using a regular expression pattern
         _validCommand = new ChangePasswordCommand(validPassword, newValidPassword, newValidPassword);
 
+        _exampleCredential = Credential.Create(
+            EmailAddress.Create(_faker.Person.Email).Value,
+            StringObject.Create(_faker.Internet.Password(20)),
+            _hashingServiceMock.Object);
+
         _handler = new ChangePasswordCommandHandler(
             _hashingServiceMock.Object,
             _credentialRepositoryMock.Object,
@@ -52,15 +57,10 @@ public sealed class ChangePasswordCommandHandlerTest
             _entitiesEventsManagemmentProvider.Object);
 
         _currentRequestUser = new CurrentRequestUser(
-            Guid.NewGuid(),
+            _exampleCredential.Id.Value,
             _faker.Person.Email,
             _faker.Commerce.Locale,
             _faker.Random.String(20));
-
-        _exampleCredential = Credential.Create(
-            EmailAddress.Create(_faker.Person.Email).Value,
-            StringObject.Create(_faker.Internet.Password(20)),
-            _hashingServiceMock.Object);
     }
 
     [Fact]

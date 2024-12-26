@@ -45,7 +45,7 @@ public sealed class ChangePasswordCommandHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_CurrentUserNotFound_Unauthorized()
+    public async Task Handle_Should_ReturnFailureResult_WhenCurrentUserNotFound()
     {
         // arrange
         _httpRequestProviderMock.Setup(
@@ -61,7 +61,7 @@ public sealed class ChangePasswordCommandHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_ById_NotFound()
+    public async Task Handle_Should_ReturnFailureResult_WhenIdWasNotFound()
     {
         // arrange
         Set_Provider_GetCoontextCurrentUser_Success();
@@ -81,7 +81,7 @@ public sealed class ChangePasswordCommandHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_Verify_WrongPassword()
+    public async Task Handle_Should_ReturnFailureResult_WhenPasswordIsWrong()
     {
         // arrange
         Set_Provider_GetCoontextCurrentUser_Success();

@@ -1,7 +1,5 @@
-﻿using Common.Services.Hashing.Abstractions;
+﻿using Moq;
 using FluentAssertions;
-using Microsoft.Extensions.Options;
-using Moq;
 using Services.Auth.Application.UseCases;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Errors;
@@ -86,7 +84,7 @@ public sealed class SigninCommandHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_ReturnFailureResult_WrongPassword()
+    public async Task Handle_Should_ReturnFailureResult_WhenPasswordIsWrong()
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);

@@ -59,7 +59,7 @@ public sealed class GetCredentialByIdQueryHandlerTest
     }
 
     [Fact]
-    public async Task Handle_Should_ById_NotFound()
+    public async Task Handle_Should_ReturnFailureResult_WhenIdWasNotFound()
     {
         // arrange
         GetCredentialByIdQuery query = new GetCredentialByIdQuery(Guid.NewGuid());

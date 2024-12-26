@@ -2,59 +2,28 @@
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Moq;
-using Services.Auth.Domain.Settings;
 using Services.Auth.Application.UseCases;
-using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Errors;
 using Shared.Common.Helper.ErrorsHandler;
-using System.IdentityModel.Tokens.Jwt;
 using Value.Objects.Helper.Values.Domain;
-using Services.Auth.Domain.Abstractions.Providers;
-using Bogus;
 using Microsoft.AspNetCore.Http;
-using Value.Objects.Helper.Values.Primitives;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 
 public sealed class SigninCommandHandlerTest
+    : BaseConfiguration
 {
-    private readonly Faker _faker;
-
-    private readonly Mock<ICredentialRepository> _credentialRepositoryMock;
-    private readonly Mock<IHashingService> _hashingServiceMock;
-    private readonly Mock<ITokenProvider> _tokenProviderMock;
-
-    private readonly Mock<IOptions<JwtSettings>> _jwtSettingsMock;
-    private readonly Mock<JwtSecurityTokenHandler> _jwtSecurityTokenHandlerMock;
-
     private readonly SigninCommandHandler _handler;
-    private readonly Credential _exampleCredential;
-
-    private const string ValidPassword = "Qwerty1234@"; // Bogus crashes when trying to create a password using a regular expression pattern
-
+    
     public SigninCommandHandlerTest()
     {
-        _faker = new();
-
-        _credentialRepositoryMock = new();
-        _hashingServiceMock = new();
-        _tokenProviderMock = new();
-
-        _jwtSettingsMock = new();
-        _jwtSecurityTokenHandlerMock = new();
-
         _handler = new SigninCommandHandler(
             _credentialRepositoryMock.Object,
             _hashingServiceMock.Object,
             _tokenProviderMock.Object,
             _jwtSettingsMock.Object,
             _jwtSecurityTokenHandlerMock.Object);
-
-        _exampleCredential = Credential.Create(
-            EmailAddress.Create(_faker.Person.Email).Value,
-            StringObject.Create(ValidPassword),
-            _hashingServiceMock.Object);
     }
 
     [Fact]
@@ -68,7 +37,7 @@ public sealed class SigninCommandHandlerTest
                 It.IsAny<EmailAddress>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<Credential>(_exampleCredential));
+            .ReturnsAsync(Result.Success<Credential>(_validCredential));
 
         _hashingServiceMock.Setup(
             x => x.Hash(It.IsAny<string>()))
@@ -127,7 +96,7 @@ public sealed class SigninCommandHandlerTest
                 It.IsAny<EmailAddress>(),
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<Credential>(_exampleCredential));
+            .ReturnsAsync(Result.Success<Credential>(_validCredential));
 
         _hashingServiceMock.Setup(
             x => x.Hash(It.IsAny<string>()))

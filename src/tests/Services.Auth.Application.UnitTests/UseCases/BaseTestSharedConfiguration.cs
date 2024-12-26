@@ -64,13 +64,13 @@ public abstract class BaseTestSharedConfiguration
 
     protected void Set_Provider_GetContextCurrentUser_Success()
         => _httpRequestProviderMock.Setup(
-            x => x.GetContextCurrentUser())
-            .Returns(Result.Success(_currentRequestUser));
+                x => x.GetContextCurrentUser())
+                .Returns(Result.Success(_currentRequestUser));
 
-    protected void Set_Provider_GetContextCurrentUser_Failurer()
+    protected void Set_Provider_GetContextCurrentUser_UnauthorizedFailure()
         => _httpRequestProviderMock.Setup(
-            x => x.GetContextCurrentUser())
-            .Returns(Result.Success(_currentRequestUser));
+                x => x.GetContextCurrentUser())
+                .Returns(Result.Failure<CurrentRequestUser>(Error.Unauthorized()));
 
     #endregion
 

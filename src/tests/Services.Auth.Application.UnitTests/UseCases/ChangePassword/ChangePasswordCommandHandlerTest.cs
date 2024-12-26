@@ -1,10 +1,6 @@
-﻿using Moq;
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.AspNetCore.Http;
-using Shared.Common.Helper.Models;
 using Services.Auth.Domain.Errors;
-using Services.Auth.Domain.Entities;
-using Services.Auth.Domain.StrongIds;
 using Services.Auth.Application.UseCases;
 using Shared.Common.Helper.ErrorsHandler;
 
@@ -48,9 +44,7 @@ public sealed class ChangePasswordCommandHandlerTest
     public async Task Handle_Should_ReturnFailureResult_WhenCurrentUserNotFound()
     {
         // arrange
-        _httpRequestProviderMock.Setup(
-            x => x.GetContextCurrentUser())
-            .Returns(Result.Failure<CurrentRequestUser>(Error.Unauthorized()));
+        Set_Provider_GetContextCurrentUser_UnauthorizedFailure();
 
         // act
         Result result = await _handler.Handle(_validCommand, default);
@@ -65,11 +59,7 @@ public sealed class ChangePasswordCommandHandlerTest
     {
         // arrange
         Set_Provider_GetContextCurrentUser_Success();
-        _credentialRepositoryMock.Setup(
-                x => x.ByIdAsync(
-                    It.IsAny<CredentialId>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Result.Failure<Credential>(CredentialErrors.NotFound));
+        Set_Credential_ByIdAsync_NotFoundFailure();
 
         // act
         Result result = await _handler.Handle(_validCommand, default);
@@ -86,11 +76,7 @@ public sealed class ChangePasswordCommandHandlerTest
         // arrange
         Set_Provider_GetContextCurrentUser_Success();
         Set_Credential_ByIdAsync_Success();
-        _hashingServiceMock.Setup(
-                x => x.Verify(
-                    It.IsAny<string>(),
-                    It.IsAny<string>()))
-                .Returns(false);
+        Set_Hashing_Verify_AsFalse();
 
         // act
         Result result = await _handler.Handle(_validCommand, default);

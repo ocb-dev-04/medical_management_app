@@ -30,12 +30,7 @@ public sealed class SigninCommandHandlerTest
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
 
-        _credentialRepositoryMock.Setup(
-            x => x.ByEmailAsync(
-                It.IsAny<EmailAddress>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<Credential>(_validCredential));
+        Set_Credential_ByEmailAsync_Success();
 
         _hashingServiceMock.Setup(
             x => x.Hash(It.IsAny<string>()))

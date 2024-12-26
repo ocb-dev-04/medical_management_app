@@ -55,5 +55,4 @@ public sealed class GetCredentialByIdQueryHandlerTest
         result.Error.Should().Be(CredentialErrors.NotFound);
         result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
-
 }

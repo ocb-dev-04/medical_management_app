@@ -60,6 +60,36 @@ public abstract class BaseTestSharedConfiguration
             _faker.Random.String(20));
     }
 
+    #region Token Provider
+
+    // read jwt
+    protected void Set_Provider_ReadJwt_Success(Guid id)
+        => _tokenProviderMock.Setup(
+            x => x.ReadJwt(
+                _jwtSettingsMock.Object.Value,
+                _jwtSecurityTokenHandlerMock.Object,
+                _httpRequestProviderMock.Object))
+            .Returns(Result.Success(id));
+    
+    protected void Set_Provider_ReadJwt_UnauthorizedFailure()
+        => _tokenProviderMock.Setup(
+                x => x.ReadJwt(
+                    _jwtSettingsMock.Object.Value,
+                    _jwtSecurityTokenHandlerMock.Object,
+                    _httpRequestProviderMock.Object))
+                .Returns(Result.Failure<Guid>(Error.Unauthorized()));
+
+    // build jwt
+    protected void Set_Provider_BuildJwt_Success()
+        => _tokenProviderMock.Setup(
+            x => x.BuildJwt(
+                _validCredential,
+                _jwtSettingsMock.Object.Value,
+                _jwtSecurityTokenHandlerMock.Object))
+            .Returns(Guid.NewGuid().ToString());
+
+    #endregion
+
     #region Http Provider
 
     protected void Set_Provider_GetContextCurrentUser_Success()

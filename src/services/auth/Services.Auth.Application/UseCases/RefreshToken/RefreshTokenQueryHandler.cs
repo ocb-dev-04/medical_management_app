@@ -62,13 +62,11 @@ internal sealed class RefreshTokenQueryHandler
         if (found.IsFailure)
             return Result.Failure<RefreshTokenResponse>(found.Error);
 
-        Result<string> token = _tokenProvider.BuildJwt(
+        string token = _tokenProvider.BuildJwt(
             found.Value, 
             in _jwtSettings, 
             in _jwtSecurityTokenHandler);
-        if (token.IsFailure)
-            return Result.Failure<RefreshTokenResponse>(token.Error);
 
-        return new RefreshTokenResponse(token.Value);
+        return new RefreshTokenResponse(token);
     }
 }

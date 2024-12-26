@@ -29,6 +29,8 @@ public sealed class SigninCommandHandlerTest
     private readonly Mock<JwtSecurityTokenHandler> _jwtSecurityTokenHandlerMock;
 
     private readonly SigninCommandHandler _handler;
+    private readonly Credential _exampleCredential;
+
     private const string ValidPassword = "Qwerty1234@"; // Bogus crashes when trying to create a password using a regular expression pattern
 
     public SigninCommandHandlerTest()
@@ -49,6 +51,10 @@ public sealed class SigninCommandHandlerTest
             _jwtSettingsMock.Object,
             _jwtSecurityTokenHandlerMock.Object);
 
+        _exampleCredential = Credential.Create(
+            EmailAddress.Create(_faker.Person.Email).Value,
+            StringObject.Create(ValidPassword),
+            _hashingServiceMock.Object);
     }
 
     [Fact]
@@ -56,10 +62,6 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
-        Credential _exampleCredential = Credential.Create(
-            EmailAddress.Create(_faker.Person.Email).Value,
-            StringObject.Create(ValidPassword),
-            _hashingServiceMock.Object);
 
         _credentialRepositoryMock.Setup(
             x => x.ByEmailAsync(
@@ -97,6 +99,7 @@ public sealed class SigninCommandHandlerTest
         // assert
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Be(CredentialErrors.EmailNotFound);
+        result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 
     [Fact]
@@ -118,10 +121,6 @@ public sealed class SigninCommandHandlerTest
     {
         // arrange
         SigninCommand command = new SigninCommand(_faker.Person.Email, ValidPassword);
-        Credential _exampleCredential = Credential.Create(
-            EmailAddress.Create(_faker.Person.Email).Value,
-            StringObject.Create(_faker.Internet.Password(20)),
-            _hashingServiceMock.Object);
 
         _credentialRepositoryMock.Setup(
             x => x.ByEmailAsync(

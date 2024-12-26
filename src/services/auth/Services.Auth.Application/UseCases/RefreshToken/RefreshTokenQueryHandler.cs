@@ -5,9 +5,9 @@ using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
 using Shared.Common.Helper.ErrorsHandler;
-using Shared.Common.Helper.Providers;
 using System.IdentityModel.Tokens.Jwt;
 using Services.Auth.Domain.Abstractions.Providers;
+using Shared.Common.Helper.Abstractions.Providers;
 
 namespace Services.Auth.Application.UseCases;
 
@@ -18,7 +18,7 @@ internal sealed class RefreshTokenQueryHandler
     private readonly ITokenProvider _tokenProvider;
 
     private readonly JwtSettings _jwtSettings;
-    private readonly HttpRequestProvider _httpRequestProvider;
+    private readonly IHttpRequestProvider _httpRequestProvider;
     private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
 
     public RefreshTokenQueryHandler(
@@ -26,7 +26,7 @@ internal sealed class RefreshTokenQueryHandler
         ITokenProvider tokenProvider,
 
         IOptions<JwtSettings> jwtSettings,
-        HttpRequestProvider httpRequestProvider,
+        IHttpRequestProvider httpRequestProvider,
         JwtSecurityTokenHandler jwtSecurityTokenHandler)
 
     {

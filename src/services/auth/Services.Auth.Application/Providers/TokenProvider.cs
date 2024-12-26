@@ -4,12 +4,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Settings;
-using Shared.Common.Helper.Providers;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Primitives;
 using System.IdentityModel.Tokens.Jwt;
 using Shared.Common.Helper.ErrorsHandler;
 using Services.Auth.Domain.Abstractions.Providers;
+using Shared.Common.Helper.Abstractions.Providers;
 
 namespace Services.Auth.Application.Providers;
 
@@ -55,7 +55,7 @@ internal sealed class TokenProvider
     public Result<Guid> ReadJwt(
         in JwtSettings jwtSettings,
         in JwtSecurityTokenHandler jwtSecurityTokenHandler,
-        in HttpRequestProvider httpRequestProvider)
+        in IHttpRequestProvider httpRequestProvider)
     {
         HttpContext httpContext = httpRequestProvider.GetCurrentHttpContext()!;
         bool getToken = httpContext.Request.Headers.TryGetValue(_headerAuthKey, out StringValues jwt);

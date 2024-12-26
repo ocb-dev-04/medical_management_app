@@ -1,8 +1,8 @@
 ﻿using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Settings;
-using Shared.Common.Helper.Providers;
 using System.IdentityModel.Tokens.Jwt;
 using Shared.Common.Helper.ErrorsHandler;
+using Shared.Common.Helper.Abstractions.Providers;
 
 namespace Services.Auth.Domain.Abstractions.Providers;
 
@@ -30,5 +30,5 @@ public interface ITokenProvider
     public Result<Guid> ReadJwt(
         in JwtSettings jwtSettings,
         in JwtSecurityTokenHandler jwtSecurityTokenHandler,
-        in HttpRequestProvider httpRequestProvider);
+        in IHttpRequestProvider httpRequestProvider);
 }

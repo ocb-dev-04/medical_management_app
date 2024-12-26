@@ -1,6 +1,5 @@
 ﻿using Shared.Common.Helper.ErrorsHandler;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
-using Shared.Common.Helper.Providers;
 using Services.Auth.Domain.StrongIds;
 using Services.Auth.Domain.Entities;
 using Microsoft.Extensions.Options;
@@ -8,6 +7,7 @@ using Services.Auth.Domain.Settings;
 using System.IdentityModel.Tokens.Jwt;
 using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Abstractions.Providers;
+using Shared.Common.Helper.Abstractions.Providers;
 
 namespace Services.Auth.Application.UseCases;
 
@@ -19,7 +19,7 @@ internal sealed class GetCredentialByTokenQueryHandler
     private readonly ITokenProvider _tokenProvider;
 
     private readonly JwtSettings _jwtSettings;
-    private readonly HttpRequestProvider _httpRequestProvider;
+    private readonly IHttpRequestProvider _httpRequestProvider;
     private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
 
     public GetCredentialByTokenQueryHandler(
@@ -27,7 +27,7 @@ internal sealed class GetCredentialByTokenQueryHandler
         ITokenProvider tokenProvider,
 
         IOptions<JwtSettings> jwtSettings,
-        HttpRequestProvider httpRequestProvider,
+        IHttpRequestProvider httpRequestProvider,
         JwtSecurityTokenHandler jwtSecurityTokenHandler)
 
     {

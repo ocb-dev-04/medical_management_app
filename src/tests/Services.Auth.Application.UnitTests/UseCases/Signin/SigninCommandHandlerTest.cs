@@ -2,10 +2,8 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Services.Auth.Domain.Errors;
-using Services.Auth.Domain.Entities;
 using Services.Auth.Application.UseCases;
 using Shared.Common.Helper.ErrorsHandler;
-using Value.Objects.Helper.Values.Domain;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 

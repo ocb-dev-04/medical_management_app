@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\shared\Shared.Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\..\shared\Shared.Message.Queue.Requests\Shared.Message.Queue.Requests.csproj" />
   </ItemGroup>
 
 </Project>

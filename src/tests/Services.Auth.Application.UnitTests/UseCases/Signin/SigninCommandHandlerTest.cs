@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Http;
 using Services.Auth.Domain.Errors;
 using Services.Auth.Application.UseCases;
 using Shared.Common.Helper.ErrorsHandler;
+using Value.Objects.Helper.Values.Domain;
+using Services.Auth.Domain.Entities;
+using Services.Auth.Domain.Settings;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Services.Auth.Application.UnitTests.UseCases.Signin;
 
@@ -38,6 +42,25 @@ public sealed class SigninCommandHandlerTest
         Result<SigninResponse> result = await _handler.Handle(command, default);
 
         // assert
+        _credentialRepositoryMock.Verify(repo
+            => repo.ByEmailAsync(
+                It.Is<EmailAddress>(e => e.Value.Equals(command.Email)),
+                true,
+                It.IsAny<CancellationToken>()),
+                Times.Once);
+
+        _hashingServiceMock.Verify(service
+            => service.Hash(
+                It.Is<string>(s => s.Equals(command.Password))),
+                Times.Once);
+
+        _tokenProviderMock.Verify(provider
+            => provider.BuildJwt(
+                It.Is<Credential>(f => f.Equals(_validCredential)),
+                It.IsAny<JwtSettings>(),
+                It.IsAny<JwtSecurityTokenHandler>()),
+                Times.Once);
+
         result.IsSuccess.Should().BeTrue();
     }
 

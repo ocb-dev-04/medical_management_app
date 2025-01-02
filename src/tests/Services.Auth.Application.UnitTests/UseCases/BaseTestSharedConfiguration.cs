@@ -83,7 +83,7 @@ public abstract class BaseTestSharedConfiguration
     protected void Set_Provider_BuildJwt_Success()
         => _tokenProviderMock.Setup(
             x => x.BuildJwt(
-                It.IsAny<Credential>(),
+                _validCredential,
                 _jwtSettingsMock.Object.Value,
                 _jwtSecurityTokenHandlerMock.Object))
             .Returns(Guid.NewGuid().ToString());

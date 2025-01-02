@@ -35,8 +35,10 @@ public sealed class SigninCommandHandlerTest
         Set_Credential_ByEmailAsync_Success();
 
         _hashingServiceMock.Setup(
-            x => x.Hash(It.IsAny<string>()))
+            x => x.Hash(ValidPassword))
             .Returns(ValidPassword);
+
+        Set_Provider_BuildJwt_Success();
 
         // act
         Result<SigninResponse> result = await _handler.Handle(command, default);
@@ -52,13 +54,6 @@ public sealed class SigninCommandHandlerTest
         _hashingServiceMock.Verify(service
             => service.Hash(
                 It.Is<string>(s => s.Equals(command.Password))),
-                Times.Once);
-
-        _tokenProviderMock.Verify(provider
-            => provider.BuildJwt(
-                It.Is<Credential>(f => f.Equals(_validCredential)),
-                It.IsAny<JwtSettings>(),
-                It.IsAny<JwtSecurityTokenHandler>()),
                 Times.Once);
 
         result.IsSuccess.Should().BeTrue();

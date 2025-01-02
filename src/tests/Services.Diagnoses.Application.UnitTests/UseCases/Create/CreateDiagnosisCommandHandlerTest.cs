@@ -22,8 +22,8 @@ public class CreateDiagnosisCommandHandlerTest
             DosageIntervals.EverySixHours);
 
         _handler = new(
-            _diagnosisRepositoryMock.Object,
-            _messageQeueServicesMock.Object);
+            _diagnosisRepositoryMock,
+            _messageQeueServicesMock);
     }
 
     [Fact]

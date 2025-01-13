@@ -7,6 +7,7 @@ using Shared.Message.Queue.Requests.Responses;
 using Service.Diagnoses.Domain.Enums;
 using Value.Objects.Helper.Values.Primitives;
 using Service.Diagnoses.Domain.Errors;
+using Service.Diagnoses.Application.UseCases;
 
 namespace Services.Diagnoses.Application.UnitTests;
 
@@ -120,7 +121,6 @@ public abstract class BaseTestSharedConfiguration
     public void Set_GetDiagnosisById_Success_WithOtherOwner()
         => _diagnosisRepositoryMock.ByIdAsync(
                         Arg.Any<GuidObject>(),
-                        //_validDiagnosisWithOtherOwner.Id,
                         Arg.Any<CancellationToken>())
                     .Returns(_validDiagnosisWithOtherOwner);
 
@@ -131,7 +131,35 @@ public abstract class BaseTestSharedConfiguration
                     .Returns(
                         Result.Failure<Diagnosis>(
                             DiagnosisErrors.NotFound));
-    
+
+    public void Set_GetDiagnosisCollectionByPatientById_Success()
+    {
+        Faker<Diagnosis> diagnosisFaker = new Faker<Diagnosis>()
+            .CustomInstantiator(f => Diagnosis.Create(
+                GuidObject.Create(_validDoctor.Id.ToString()),
+                GuidObject.Create(_validPatient.Id.ToString()),
+                StringObject.Create(f.Commerce.ProductName()),
+                StringObject.Create(f.Commerce.ProductDescription()),
+                StringObject.Create(f.Lorem.Paragraph(240)),
+                DosageIntervals.EverySixHours.ToTimeSpan()
+            ));
+
+        _diagnosisRepositoryMock.ByPatientId(
+                            GuidObject.Create(_validPatient.Id.ToString()),
+                            Arg.Any<int>(),
+                            Arg.Any<CancellationToken>())
+                        .Returns(
+                            diagnosisFaker.Generate(20));
+    }
+
+    public void Set_GetDiagnosisCollectionByPatientById_Empty()
+        => _diagnosisRepositoryMock.ByPatientId(
+                        GuidObject.Create(_validPatient.Id.ToString()),
+                        Arg.Any<int>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Enumerable.Empty<Diagnosis>().ToList().AsReadOnly());
+
+
     public void Set_CreateDiagnosis_Success()
         => _diagnosisRepositoryMock.CreateAsync(
                         Arg.Any<Diagnosis>(),

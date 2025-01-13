@@ -43,7 +43,7 @@ public sealed class GetDiagnosisByIdQueryHandlerTest
         Set_GetDiagnosisById_NotFound();
 
         // act
-        Result result = await _handler.Handle(_query, default);
+        Result<DiagnosisResponse> result = await _handler.Handle(_query, default);
 
         // assert
         result.IsFailure.Should().BeTrue();

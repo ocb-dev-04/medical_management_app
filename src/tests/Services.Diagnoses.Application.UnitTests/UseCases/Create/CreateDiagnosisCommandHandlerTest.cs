@@ -1,13 +1,14 @@
-﻿using FluentAssertions;
+﻿using NSubstitute;
+using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Service.Diagnoses.Domain.Enums;
+using Service.Diagnoses.Domain.Entities;
 using Shared.Common.Helper.ErrorsHandler;
 using Service.Diagnoses.Application.UseCases;
-using NSubstitute;
-using Service.Diagnoses.Domain.Entities;
 
 namespace Services.Diagnoses.Application.UnitTests.UseCases.Create;
 
-public class CreateDiagnosisCommandHandlerTest
+public sealed class CreateDiagnosisCommandHandlerTest
     : BaseTestSharedConfiguration
 {
     private readonly CreateDiagnosisCommand _command;
@@ -57,5 +58,79 @@ public class CreateDiagnosisCommandHandlerTest
                     f.DosageInterval.Equals(_command.DosageInterval.ToTimeSpan())), default);
         
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_DoctorNotFound()
+    {
+        // arrange
+        Set_DoctorMessageQueue_NotFoundFailure();
+
+        // act
+        Result<DiagnosisResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetDoctorByIdAsync(Arg.Is<Guid>(f
+                => f.Equals(_command.DoctorId)), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_DoctorNullValue()
+    {
+        // arrange
+        Set_DoctorMessageQueue_NullValueFailure();
+
+        // act
+        Result<DiagnosisResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetDoctorByIdAsync(Arg.Is<Guid>(f
+                => f.Equals(_command.DoctorId)), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(Error.NullValue);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_PatientNotFound()
+    {
+        // arrange
+        Set_DoctorMessageQueue_Succes();
+        Set_PatientMessageQueue_NotFoundFailure();
+
+        // act
+        Result<DiagnosisResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetPatientByIdAsync(Arg.Is<Guid>(f
+                => f.Equals(_command.PatientId)), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+    
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_PatientNullValue()
+    {
+        // arrange
+        Set_DoctorMessageQueue_Succes();
+        Set_PatientMessageQueue_NullValueFailure();
+
+        // act
+        Result<DiagnosisResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetPatientByIdAsync(Arg.Is<Guid>(f
+                => f.Equals(_command.PatientId)), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(Error.NullValue);
     }
 }

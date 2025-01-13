@@ -32,21 +32,45 @@ public sealed class SignUpCommandHandlerTest
     {
         // arrange
         SignupCommand command = new SignupCommand(_faker.Person.Email, ValidPassword);
-        Credential _exampleCredential = Credential.Create(
-            EmailAddress.Create(_faker.Person.Email).Value,
-            StringObject.Create(ValidPassword),
-            _hashingServiceMock.Object);
 
-        Set_Credential_ByEmailAsync_Success();
+        Set_Credential_ExistAsync_AsFalse();
 
         _hashingServiceMock.Setup(
-            x => x.Hash(It.IsAny<string>()))
-            .Returns(ValidPassword);
+            x => x.Hash(command.Password))
+            .Returns(It.IsAny<string>());
+
+        _credentialRepositoryMock.Setup(
+            x => x.CreateAsync(
+                _validCredential,
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _credentialRepositoryMock.Setup(
+            x => x.CommitAsync(
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // act
         Result<SignupResponse> result = await _handler.Handle(command, default);
 
         // assert
+        _credentialRepositoryMock.Verify(f
+            => f.ExistAsync(
+                It.IsAny<Expression<Func<Credential, bool>>>(),
+                It.IsAny<CancellationToken>()),
+                Times.Once);
+
+        _hashingServiceMock.Verify(f
+            => f.Hash(
+                It.IsAny<string>()),
+                Times.AtLeastOnce);
+
+        _credentialRepositoryMock.Verify(f
+            => f.CreateAsync(
+                It.IsAny<Credential>(),
+                It.IsAny<CancellationToken>()),
+                Times.Once);
+
         result.IsSuccess.Should().BeTrue();
     }
 

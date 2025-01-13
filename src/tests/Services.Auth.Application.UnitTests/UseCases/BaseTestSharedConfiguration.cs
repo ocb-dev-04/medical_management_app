@@ -14,6 +14,7 @@ using Value.Objects.Helper.Values.Primitives;
 using Services.Auth.Domain.Abstractions.Providers;
 using Shared.Common.Helper.Abstractions.Providers;
 using Services.Auth.Domain.Abstractions.Repositories;
+using System.Linq.Expressions;
 
 namespace Services.Auth.Application.UnitTests.UseCases;
 
@@ -119,6 +120,20 @@ public abstract class BaseTestSharedConfiguration
                     It.IsAny<CredentialId>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Result.Failure<Credential>(CredentialErrors.NotFound));
+
+    protected void Set_Credential_ExistAsync_AsTrue()
+        => _credentialRepositoryMock.Setup(
+                x => x.ExistAsync(
+                    It.IsAny<Expression<Func<Credential, bool>>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(true);
+
+    protected void Set_Credential_ExistAsync_AsFalse()
+        => _credentialRepositoryMock.Setup(
+                x => x.ExistAsync(
+                    It.IsAny<Expression<Func<Credential, bool>>>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(false);
 
     protected void Set_Credential_ByEmailAsync_Success()
         => _credentialRepositoryMock.Setup(

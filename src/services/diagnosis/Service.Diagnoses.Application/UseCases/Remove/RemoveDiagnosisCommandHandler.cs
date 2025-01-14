@@ -13,11 +13,11 @@ internal sealed class RemoveDiagnosisCommandHandler
     : ICommandHandler<RemoveDiagnosisCommand>
 {
     private readonly IDiagnosisRepository _diagnosisRepository;
-    private readonly MessageQeueServices _messageQeueServices;
+    private readonly IMessageQeueServices _messageQeueServices;
 
     public RemoveDiagnosisCommandHandler(
         IDiagnosisRepository diagnosisRepository,
-        MessageQeueServices messageQeueServices)
+        IMessageQeueServices messageQeueServices)
     {
         ArgumentNullException.ThrowIfNull(diagnosisRepository, nameof(diagnosisRepository));
         ArgumentNullException.ThrowIfNull(messageQeueServices, nameof(messageQeueServices));

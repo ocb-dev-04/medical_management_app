@@ -1,9 +1,9 @@
 ﻿using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
-using Services.Auth.Domain.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
+using Services.Auth.Domain.Abstractions.Repositories;
 
 namespace Services.Auth.Application.UseCases;
 
@@ -23,7 +23,7 @@ internal sealed class GetCredentialByIdQueryHandler
     {
         Result<CredentialId> credentialId = CredentialId.Create(request.Id);
         if (credentialId.IsFailure)
-            return Result.Failure<CredentialResponse>(CredentialErrors.NotFound);
+            return Result.Failure<CredentialResponse>(credentialId.Error);
 
         Result<Credential> found = await _credentialRepository.ByIdAsync(credentialId.Value, cancellationToken);
         if(found.IsFailure)

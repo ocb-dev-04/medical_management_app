@@ -1,10 +1,10 @@
 ﻿using Shared.Domain.Settings;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
-using Services.Auth.Domain.Abstractions;
 using Services.Auth.Persistence.Context;
 using Services.Auth.Persistence.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using Services.Auth.Domain.Abstractions.Repositories;
 
 namespace Services.Auth.Persistence;
 

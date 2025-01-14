@@ -1,16 +1,15 @@
 ﻿using Common.Services.Hashing.Abstractions;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
 using Microsoft.Extensions.Options;
-using Services.Auth.Application.Providers;
-using Services.Auth.Application.Settings;
-using Services.Auth.Domain.Abstractions;
+using Services.Auth.Domain.Settings;
+using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Errors;
 using Shared.Common.Helper.ErrorsHandler;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net.Mail;
 using Value.Objects.Helper.Values.Domain;
 using Value.Objects.Helper.Values.Primitives;
+using Services.Auth.Domain.Abstractions.Providers;
 
 namespace Services.Auth.Application.UseCases;
 
@@ -19,17 +18,17 @@ internal sealed class SignUpCommandHandler
 {
     private readonly ICredentialRepository _credentialRepository;
     private readonly IHashingService _hashService;
+    private readonly ITokenProvider _tokenProvider;
 
     private readonly JwtSettings _jwtSettings;
-    private readonly TokenProvider _tokenProvider;
     private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
 
     public SignUpCommandHandler(
         ICredentialRepository credentialRepository,
         IHashingService hashService,
+        ITokenProvider tokenProvider,
 
         IOptions<JwtSettings> jwtSettings,
-        TokenProvider tokenProvider,
         JwtSecurityTokenHandler jwtSecurityTokenHandler)
 
     {
@@ -66,10 +65,7 @@ internal sealed class SignUpCommandHandler
         await _credentialRepository.CreateAsync(credential, cancellationToken);
         await _credentialRepository.CommitAsync(cancellationToken);
 
-        Result<string> token = _tokenProvider.BuildJwt(credential, in _jwtSettings, in _jwtSecurityTokenHandler);
-        if (token.IsFailure)
-            return Result.Failure<SignupResponse>(token.Error);
-
-        return new SignupResponse(token.Value, CredentialResponse.Map(credential));
+        string token = _tokenProvider.BuildJwt(credential, in _jwtSettings, in _jwtSecurityTokenHandler);
+        return new SignupResponse(token, CredentialResponse.Map(credential));
     }
 }

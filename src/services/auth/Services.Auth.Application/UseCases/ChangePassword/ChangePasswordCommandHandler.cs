@@ -1,12 +1,12 @@
 ﻿using Common.Services.Hashing.Abstractions;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
-using Services.Auth.Domain.Abstractions;
+using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.Errors;
 using Services.Auth.Domain.StrongIds;
+using Shared.Common.Helper.Abstractions.Providers;
 using Shared.Common.Helper.ErrorsHandler;
 using Shared.Common.Helper.Models;
-using Shared.Common.Helper.Providers;
 using Value.Objects.Helper.Values.Primitives;
 
 namespace Services.Auth.Application.UseCases;
@@ -17,15 +17,15 @@ internal sealed class ChangePasswordCommandHandler
     private readonly ICredentialRepository _credentialRepository;
     private readonly IHashingService _hashService;
 
-    private readonly HttpRequestProvider _httpRequestProvider;
-    private readonly EntitiesEventsManagementProvider _entitiesEventsManagement;
+    private readonly IHttpRequestProvider _httpRequestProvider;
+    private readonly IEntitiesEventsManagementProvider _entitiesEventsManagement;
 
     public ChangePasswordCommandHandler(
         IHashingService hashService,
         ICredentialRepository credentialRepository,
 
-        HttpRequestProvider httpRequestProvider,
-        EntitiesEventsManagementProvider entitiesEventsManagement)
+        IHttpRequestProvider httpRequestProvider,
+        IEntitiesEventsManagementProvider entitiesEventsManagement)
     {
         ArgumentNullException.ThrowIfNull(hashService, nameof(hashService));
         ArgumentNullException.ThrowIfNull(credentialRepository, nameof(credentialRepository));

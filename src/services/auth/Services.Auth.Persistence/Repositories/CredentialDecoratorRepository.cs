@@ -2,10 +2,10 @@
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
 using Shared.Common.Helper.Extensions;
-using Services.Auth.Domain.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
 using Value.Objects.Helper.Values.Domain;
 using Shared.Domain.Abstractions.Services;
+using Services.Auth.Domain.Abstractions.Repositories;
 
 namespace Services.Auth.Persistence.Repositories;
 

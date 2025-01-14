@@ -1,0 +1,35 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - 'sprint*'
+      - development
+
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        
+      - name: Set up .NET Core 
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+          
+      - name: Give access to private nugets (dependencies)
+        run: dotnet nuget add source --username ocb-dev-04 --password ${{ secrets.NUGET_AUTH_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ocb-dev-04/index.json"
+    
+      - name: Restore NuGet Packages
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test
+        run: dotnet test --no-restore --verbosity normal

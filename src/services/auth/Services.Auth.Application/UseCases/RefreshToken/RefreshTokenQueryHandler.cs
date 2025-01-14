@@ -1,13 +1,13 @@
 ﻿using CQRS.MediatR.Helper.Abstractions.Messaging;
 using Microsoft.Extensions.Options;
-using Services.Auth.Application.Providers;
-using Services.Auth.Application.Settings;
-using Services.Auth.Domain.Abstractions;
+using Services.Auth.Domain.Settings;
+using Services.Auth.Domain.Abstractions.Repositories;
 using Services.Auth.Domain.Entities;
 using Services.Auth.Domain.StrongIds;
 using Shared.Common.Helper.ErrorsHandler;
-using Shared.Common.Helper.Providers;
 using System.IdentityModel.Tokens.Jwt;
+using Services.Auth.Domain.Abstractions.Providers;
+using Shared.Common.Helper.Abstractions.Providers;
 
 namespace Services.Auth.Application.UseCases;
 
@@ -15,29 +15,32 @@ internal sealed class RefreshTokenQueryHandler
     : IQueryHandler<RefreshTokenQuery, RefreshTokenResponse>
 {
     private readonly ICredentialRepository _credentialRepository;
+    private readonly ITokenProvider _tokenProvider;
 
     private readonly JwtSettings _jwtSettings;
-    private readonly TokenProvider _tokenProvider;
-    private readonly HttpRequestProvider _httpRequestProvider;
+    private readonly IHttpRequestProvider _httpRequestProvider;
     private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
 
     public RefreshTokenQueryHandler(
         ICredentialRepository credentialRepository,
+        ITokenProvider tokenProvider,
+
         IOptions<JwtSettings> jwtSettings,
-        TokenProvider tokenProvider,
-        HttpRequestProvider httpRequestProvider,
+        IHttpRequestProvider httpRequestProvider,
         JwtSecurityTokenHandler jwtSecurityTokenHandler)
 
     {
         ArgumentNullException.ThrowIfNull(credentialRepository, nameof(credentialRepository));
-        ArgumentNullException.ThrowIfNull(jwtSettings, nameof(jwtSettings));
         ArgumentNullException.ThrowIfNull(tokenProvider, nameof(tokenProvider));
+
+        ArgumentNullException.ThrowIfNull(jwtSettings, nameof(jwtSettings));
         ArgumentNullException.ThrowIfNull(jwtSecurityTokenHandler, nameof(jwtSecurityTokenHandler));
         ArgumentNullException.ThrowIfNull(httpRequestProvider, nameof(httpRequestProvider));
 
         _credentialRepository = credentialRepository;
-        _jwtSettings = jwtSettings.Value;
         _tokenProvider = tokenProvider;
+
+        _jwtSettings = jwtSettings.Value;
         _jwtSecurityTokenHandler = jwtSecurityTokenHandler;
         _httpRequestProvider = httpRequestProvider;
     }
@@ -59,13 +62,11 @@ internal sealed class RefreshTokenQueryHandler
         if (found.IsFailure)
             return Result.Failure<RefreshTokenResponse>(found.Error);
 
-        Result<string> token = _tokenProvider.BuildJwt(
+        string token = _tokenProvider.BuildJwt(
             found.Value, 
             in _jwtSettings, 
             in _jwtSecurityTokenHandler);
-        if (token.IsFailure)
-            return Result.Failure<RefreshTokenResponse>(token.Error);
 
-        return new RefreshTokenResponse(token.Value);
+        return new RefreshTokenResponse(token);
     }
 }

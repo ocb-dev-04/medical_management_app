@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+env:
+  SOLUTION_DIR: ./src
 
 jobs:
   build:
@@ -26,10 +28,10 @@ jobs:
         run: dotnet nuget add source --username ocb-dev-04 --password ${{ secrets.NUGET_AUTH_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ocb-dev-04/index.json"
     
       - name: Restore NuGet Packages
-        run: dotnet restore
+        run: dotnet restore ${{ env.SOLUTION_DIR }}
 
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build ${{ env.SOLUTION_DIR }} --no-restore
 
       - name: Test
-        run: dotnet test --no-restore --verbosity normal
+        run: dotnet test ${{ env.SOLUTION_DIR }} --no-restore --verbosity normal

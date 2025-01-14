@@ -1,68 +1,84 @@
 services:
   postgres:
     image: postgres:latest
-    container_name: postgres_prod
+    container_name: postgres_dev
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: admin1234
-      POSTGRES_DB: medical_management
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.2
 
   mongo:
     image: mongo:latest
-    container_name: mongo_prod
+    container_name: mongo_dev
+    ports:
+      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: admin1234
+    restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.3
 
   redis:
     image: redis:latest
-    container_name: redis_prod
+    container_name: redis_dev
+    ports:
+      - "6379:6379"
     environment:
       REDIS_PASSWORD: admin1234
+    restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.4
 
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: rabbitmq_prod
+    container_name: rabbitmq_dev
+    ports:
+      - "15672:15672" # Web UI
+      - "5672:5672"   # RabbitMQ port
     environment:
       RABBITMQ_DEFAULT_USER: root
       RABBITMQ_DEFAULT_PASS: admin1234
+    restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.5
 
   consul:
     image: hashicorp/consul:latest
-    container_name: consul_prod
+    container_name: consul_dev
+    ports:
+      - "8500:8500" # Consul UI
     environment:
       CONSUL_HTTP_TOKEN: noijknsdafjwj980flksnfnIUP098jhekrpwoerrwer==
+    restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.6
 
   otel-collector:
     image: otel/opentelemetry-collector:0.95.0
     container_name: otel_collector
-    command: ["--config=/etc/otel-collector-config.yml"]
-    volumes:
-      - ./config/otel-collector-config.yml:/etc/otel-collector-config.yml
     ports:
       - "8888:8888" 
       - "8889:8889" 
       - "13133:13133"
       - "4317:4317"
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./config/otel-collector-config.yml:/etc/otel-collector-config.yml
+    restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.7
     deploy:
       resources:
@@ -82,7 +98,7 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.8
     deploy:
       resources:
@@ -101,7 +117,7 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     networks:
-      prod_network:
+      static_network:
         ipv4_address: 172.20.0.9
     deploy:
       resources:
@@ -109,9 +125,31 @@ services:
           cpus: "0.1"
           memory: 40M
 
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana_dev
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin1234
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      static_network:
+        ipv4_address: 172.20.0.10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 40M
+
   elasticsearch:
-    container_name: els
     image: elasticsearch:8.17.0
+    container_name: els
     ports:
       - "9200:9200"
     volumes:
@@ -121,16 +159,16 @@ services:
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=admin1234
     networks:
-      prod_network:
-        ipv4_address: 172.20.0.10
+      static_network:
+        ipv4_address: 172.20.0.11
     deploy:
       resources:
         limits:
-          cpus: "0.1"
+          cpus: "0.5"
           memory: 100M
 
 networks:
-  prod_network:
+  static_network:
     driver: bridge
     ipam:
       driver: default
@@ -143,3 +181,4 @@ volumes:
     driver: local
   grafana-data:
     driver: local
+  elasticsearch-data:

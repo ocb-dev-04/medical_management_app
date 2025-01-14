@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Common.Services;
 using Shared.Global.Sources;
 using Microsoft.Extensions.Configuration;
+using Services.Auth.Domain.Abstractions.Providers;
 
 namespace Services.Auth.Application;
 
@@ -19,8 +20,8 @@ public static class ApplicationServices
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<TokenProvider>();
         services.AddSingleton<JwtSecurityTokenHandler>();
+        services.AddScoped<ITokenProvider, TokenProvider>();
 
         services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
         

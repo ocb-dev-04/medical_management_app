@@ -40,7 +40,7 @@ internal sealed class CachingService : ICachingService
 
         await _distributedCache.SetStringAsync(
                     key,
-                    JsonConvert.SerializeObject(getData, _jsonSerializerSettings),
+                    JsonConvert.SerializeObject(getData.Value, _jsonSerializerSettings),
                     DefaultCacheOptions(expiration),
                     cancellationToken);
 

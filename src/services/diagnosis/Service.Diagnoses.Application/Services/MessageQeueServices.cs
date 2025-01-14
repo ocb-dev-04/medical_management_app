@@ -3,6 +3,7 @@ using Shared.Common.Helper.Extensions;
 using Common.Services.Bus.Abstractions;
 using Shared.Common.Helper.ErrorsHandler;
 using Shared.Message.Queue.Requests.Buses;
+using Service.Diagnoses.Domain.Abstractions;
 using Shared.Message.Queue.Requests.Requests;
 using Shared.Message.Queue.Requests.Responses;
 using Shared.Common.Helper.Models.QueueResponses;
@@ -10,6 +11,7 @@ using Shared.Common.Helper.Models.QueueResponses;
 namespace Service.Diagnoses.Application.Services;
 
 internal sealed class MessageQeueServices
+    : IMessageQeueServices
 {
     private readonly IMultiBusService<IGeneralBus, GetDoctorByIdRequest> _doctorByIdRequest;
     private readonly IMultiBusService<IGeneralBus, GetPatientByIdRequest> _patientByIdRequest;

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Services.Auth.Application.Settings;
+namespace Services.Auth.Domain.Settings;
 
 public sealed class JwtSettings
 {

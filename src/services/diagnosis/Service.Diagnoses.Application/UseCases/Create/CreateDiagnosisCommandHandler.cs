@@ -3,7 +3,6 @@ using Service.Diagnoses.Domain.Entities;
 using Shared.Common.Helper.ErrorsHandler;
 using Service.Diagnoses.Domain.Abstractions;
 using Value.Objects.Helper.Values.Primitives;
-using Service.Diagnoses.Application.Services;
 using Shared.Message.Queue.Requests.Responses;
 using CQRS.MediatR.Helper.Abstractions.Messaging;
 
@@ -13,11 +12,11 @@ internal sealed class CreateDiagnosisCommandHandler
     : ICommandHandler<CreateDiagnosisCommand, DiagnosisResponse>
 {
     private readonly IDiagnosisRepository _diagnosisRepository;
-    private readonly MessageQeueServices _messageQeueServices;
+    private readonly IMessageQeueServices _messageQeueServices;
 
     public CreateDiagnosisCommandHandler(
         IDiagnosisRepository diagnosisRepository,
-        MessageQeueServices messageQeueServices)
+        IMessageQeueServices messageQeueServices)
     {
         ArgumentNullException.ThrowIfNull(diagnosisRepository, nameof(diagnosisRepository));
         ArgumentNullException.ThrowIfNull(messageQeueServices, nameof(messageQeueServices));

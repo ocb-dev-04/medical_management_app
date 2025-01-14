@@ -4,7 +4,7 @@ using Shared.Common.Helper.ErrorsHandler;
 using Value.Objects.Helper.Values.Domain;
 using Shared.Domain.Abstractions.Repositories;
 
-namespace Services.Auth.Domain.Abstractions;
+namespace Services.Auth.Domain.Abstractions.Repositories;
 
 public interface ICredentialRepository
     : ISingleQueriesGenericRepository<Credential, CredentialId>,
@@ -21,7 +21,7 @@ public interface ICredentialRepository
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     Task<Result<Credential>> ByEmailAsync(EmailAddress email, bool tracking = true, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Save changes
     /// </summary>

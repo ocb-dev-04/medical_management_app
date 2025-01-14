@@ -21,7 +21,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
-          
+    
+      - name: Change to src directory
+        working-directory: src
+        run: echo "--> Switched to src directory..."
+
       - name: Give access to private nugets (dependencies)
         run: dotnet nuget add source --username ocb-dev-04 --password ${{ secrets.NUGET_AUTH_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ocb-dev-04/index.json"
     

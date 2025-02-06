@@ -1,4 +1,4 @@
-﻿using Shared.Common.Helper.ErrorsHandler;
+﻿ using Shared.Common.Helper.ErrorsHandler;
 
 namespace Shared.Domain.Abstractions.Services;
 

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /mnt/c/Users/oscar/dev_code/nugets/value.objects.helper/Value.Objects.Helper/Values/Primitives/*.cs)",
+      "Bash(xargs ls:*)"
+    ]
+  }
+}

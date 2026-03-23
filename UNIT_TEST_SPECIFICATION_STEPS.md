@@ -2,50 +2,315 @@
 
 ## 1. Objective
 
-Generate unit tests for any service module's Application layer UseCases following the established patterns in this codebase. Given a module name, produce a complete test project with `BaseTestSharedConfiguration` and per-UseCase test classes that validate handler behavior through all success and failure paths.
+Generate a complete, isolated unit test project for any module's Application layer (Features). Given a module name, produce a `BaseTestSharedConfiguration`, per-UseCase handler test classes, and per-validator test classes that validate all execution paths through success and failure scenarios.
+
+---
 
 ## 2. Requirements
 
-### 2.1 Test Project Structure
-
-- Project naming: `Services.{Module}.Application.UnitTests`
+- Test project per module: `Services.{Module}.Application.UnitTests`
 - Location: `src/tests/Services.{Module}.Application.UnitTests/`
-- Folder hierarchy mirrors the Application layer's `UseCases/` structure:
-  ```
-  Services.{Module}.Application.UnitTests/
-  ├── BaseTestSharedConfiguration.cs
-  ├── UseCases/
-  │   ├── {UseCaseName}/
-  │   │   ├── {UseCaseName}CommandHandlerTest.cs   (for Commands)
-  │   │   ├── {UseCaseName}QueryHandlerTest.cs     (for Queries)
-  │   │   └── {UseCaseName}CommandValidatorTest.cs  (if validator exists)
-  ```
+- Folder structure mirrors the `UseCases/` hierarchy of the Features project
+- `.csproj` targets `net9.0` and uses central package management (no version numbers)
+- `InternalsVisibleTo` must be added to the **Domain** project when entity factory methods or members are `internal`
+- One `[Fact]` per execution path in every handler (success + one failure per fallible dependency call)
+- Validators: one test per field per validation rule; prefer `[Theory] + [InlineData]` for multiple invalid inputs
+- All mocks via NSubstitute — no `.Object` suffix needed
+- All assertions via FluentAssertions
+- Command handlers that write to repositories must verify `CreateAsync`/`UpdateAsync`/`DeleteAsync` with `Received(1)` + `Arg.Is<TEntity>` matchers on meaningful fields
+- Cross-service validation calls via `IMessageQeueServices` must be verified with `Received(1)` + `Arg.Is<T>` matchers; both `NotFound` and `NullValue` failure paths are required per call
 
-### 2.2 .csproj Configuration
+---
+
+## 3. Constraints
+
+- **Handler interface:** `ICommandHandler<TCmd, TResp>` / `IQueryHandler<TQuery, TResp>` from `CQRS.MediatR.Helper.Abstractions.Messaging`
+- **Result pattern:** `Result` / `Result<T>` from `Shared.Common.Helper.ErrorsHandler`
+- **Write architecture:** handlers write directly to repositories — `CreateAsync`, `UpdateAsync`, or `DeleteAsync` followed by `CommitAsync()` or `Commit()`; there is no message bus publish step for local persistence
+- **Cross-service validation:** handlers call `IMessageQeueServices` methods (e.g., `GetDoctorByIdAsync`, `GetPatientByIdAsync`) to validate entities owned by other modules before performing local writes; these return `Result<TQueueResponse>` and must be mocked as interfaces
+- **Search indexing:** some command handlers call `IElasticSearchService<TDto>.AddOrUpdateAsync(...)` as a post-write side effect; must be mocked and verified in success tests; verified with `DidNotReceive()` in failure tests before the write
+- **Value Objects:** use `GuidObject.New()`, `GuidObject.Create(string)`, `StringObject.Create(...)`, `BooleanObject.CreateAsTrue()`, `IntegerObject.Create(...)` — never construct raw primitives where Value Objects are expected
+- **Strong IDs:** module-specific strong IDs (e.g., `DoctorId`, `DiagnosisId`) may be created via `StrongId.Create(guid)` returning `Result<TId>` — this is a testable failure path if the handler calls it
+- **Domain errors:** static fields on `{Entity}Errors` classes (e.g., `CredentialErrors.NotFound`)
+- **Shared errors:** `Error.NullValue`, `Error.NotFound(code, msg)`, `Error.Unauthorized()`
+- **`CancellationToken`:** always pass `default` in test invocations
+- **Central package management:** `Directory.Packages.props` at `src/` manages all versions — `.csproj` uses `<PackageReference Include="..." />` only
+- **Exception policy:** handlers do NOT catch exceptions — `ArgumentNullException.ThrowIfNull` guards are constructor-only; all domain failures are Result-based; do not test constructor null guards in handler tests
+
+---
+
+## 4. Best Practices 🏛️
+
+### 4.1 AAA Discipline
+
+Every test has exactly three sections, clearly commented. No logic in Assert. No side effects in Arrange.
+
+```csharp
+[Fact]
+public async Task Handle_Should_ReturnSuccessResult()
+{
+    // arrange
+    Set_Dependency_Success();
+
+    // act
+    Result<TResponse> result = await _handler.Handle(_command, default);
+
+    // assert
+    result.IsSuccess.Should().BeTrue();
+}
+```
+
+### 4.2 Test Isolation
+
+- Each test is completely independent — no shared mutable state between tests
+- Mock returns are set up **inside each test's Arrange** (via `Set_` helpers) — never in the constructor
+- Constructors only initialize immutable state: mocks, pre-built entities, handler, command/query
+
+### 4.3 Deterministic Data
+
+- Use `new Faker()` for test data generation
+- For data that must match across tests (e.g., entity id used in command), use the pre-built entity from the base class — not `Guid.NewGuid()` inline
+- Use `Faker<T>.CustomInstantiator(f => Entity.Create(...)).Generate(n)` for collection tests
+- Use `const string` for values constrained by complex validation rules (e.g., passwords)
+
+### 4.4 Mock Boundary Rule
+
+Mock **interfaces only**. Never mock:
+
+- Value Objects (`GuidObject`, `StringObject`, etc.)
+- DTOs or response records
+- Domain entities — construct them with real factory methods (`Entity.Create(...)`)
+- Concrete classes — if a handler injects a concrete class instead of an interface, flag it as an architectural issue; it cannot be safely mocked
+
+### 4.5 Naming Convention
+
+Pattern: `Method_Should_ExpectedBehavior_WhenCondition`
+
+```
+Handle_Should_ReturnSuccessResult
+Handle_Should_ReturnFailedResult_WhenEntityNotFound
+Handle_Should_ReturnFailedResult_WhenDoctorNotFound
+Handle_Should_ReturnFailedResult_WhenDoctorIsNull
+Handle_Should_ReturnFailedResult_WhenIdIsInvalid
+Handle_Should_ReturnFailedResult_WhenDoctorIsNotTheOwner
+Validate_Should_AllOk
+Validate_Should_Fail_Name_WhenEmpty
+Validate_Should_Fail_Name_WhenTooShort
+```
+
+### 4.6 Verify Interactions, Not Implementation
+
+Use `Received(1)` on the mock interface to assert interactions. Do not assert internal handler state.
+
+```csharp
+// CORRECT — verify the repository write
+await _repositoryMock.Received(1)
+    .CreateAsync(Arg.Is<Entity>(e => e.Name.Value == _command.Name), default);
+
+// CORRECT — verify cross-service call
+await _messageQeueServicesMock.Received(1)
+    .GetDoctorByIdAsync(Arg.Is<Guid>(id => id == _command.DoctorId), default);
+
+// WRONG — leaks implementation details
+_handler._internalField.Should().BeNull();
+```
+
+### 4.7 One Logical Concept per Fact
+
+A `[Fact]` may contain multiple `Should()` calls if they assert the same logical outcome (e.g., `IsSuccess` + `Value.Id` of the same result). Never test two independent behaviors in one `[Fact]`.
+
+### 4.8 Exception Handling Strategy
+
+Handlers use the Result pattern for ALL domain-level failures — do not test exception propagation from handler logic.
+
+- Exceptions in handlers signal programming errors (null dependencies), guarded by `ArgumentNullException.ThrowIfNull` in constructors — **not unit tested**
+- If a mocked dependency is configured to throw, the exception propagates unhandled — this is correct behavior; do not write tests for it
+- Only test `Result`-based failure paths (`.IsFailure == true` scenarios)
+
+```csharp
+// DO — test Result failure paths
+[Fact]
+public async Task Handle_Should_ReturnFailedResult_WhenEntityNotFound()
+{
+    Set_GetById_NotFound(); // mock returns Result.Failure<T>
+    Result<TResponse> result = await _handler.Handle(_command, default);
+    result.IsFailure.Should().BeTrue();
+}
+
+// DO NOT — do not test exception propagation
+// [Fact] public async Task Handle_Should_Throw_WhenRepositoryThrows() { ... }
+```
+
+### 4.9 Execution Path Completeness Rule
+
+Every testable branch in a handler's `Handle` method requires exactly one `[Fact]`:
+
+| Path type | Required test |
+|---|---|
+| All dependencies succeed | One success `[Fact]` |
+| Each `if (result.IsFailure) return` | One `[Fact]` per check |
+| Each boolean guard (`if (exist) return Failure`) | One `[Fact]` per guard |
+| Each cross-service `IMessageQeueServices` call | `NotFound` failure + `NullValue` failure |
+| Strong ID creation failure (`StrongId.Create()`) | One `[Fact]` if the call is present |
+| Ownership mismatch check | One `[Fact]` with `_validEntityWithOtherOwner` |
+
+Scan the handler method line-by-line. Every `if (...) return Result.Failure<T>(...)` is a required test.
+
+### 4.10 Async Behavior Rules
+
+- Always `await` handler calls in tests — never use `.Result` or `.Wait()`
+- In NSubstitute setup: `.Returns(value)` works for `Task<Result<T>>` — NSubstitute wraps it automatically; use `.Returns(Task.FromResult(value))` when explicit is clearer
+- For void tasks: `.Returns(Task.CompletedTask)`
+- For synchronous `Commit()` calls: no `await` on the `Received()` assertion
+- xUnit is async-native — never use `Thread.Sleep` or blocking waits
+
+```csharp
+// CORRECT
+Result<TResponse> result = await _handler.Handle(_command, default);
+
+// WRONG — causes deadlocks in xUnit async context
+Result<TResponse> result = _handler.Handle(_command, default).Result;
+```
+
+### 4.11 Command vs Query Testing Rules
+
+**Commands must:**
+- Verify repository write calls (`Received(1)` on `CreateAsync`/`UpdateAsync`/`DeleteAsync`) in the success test
+- Verify with `DidNotReceive()` on write calls in failure tests that exit before the write
+- Verify cross-service validation calls (`Received(1)` on `IMessageQeueServices` methods) with matching arguments
+- Verify `IElasticSearchService.AddOrUpdateAsync` when present in the success path
+
+**Queries must:**
+- Assert returned `result.Value` fields — at least two meaningful identity/distinguishing fields
+- NOT assert write-side-effect calls (`Received()` on write repositories)
+
+```csharp
+// COMMAND SUCCESS — verify write + cross-service call
+await _messageQeueServicesMock.Received(1)
+    .GetDoctorByIdAsync(Arg.Is<Guid>(id => id == _command.DoctorId), default);
+
+await _repositoryMock.Received(1)
+    .CreateAsync(Arg.Is<Entity>(e => e.Name.Value == _command.Name), default);
+
+// COMMAND FAILURE — verify write was NOT reached
+await _repositoryMock.DidNotReceive()
+    .CreateAsync(Arg.Any<Entity>(), default);
+
+// QUERY SUCCESS — verify returned data
+result.Value.Id.Should().Be(_validEntity.Id.Value);
+result.Value.Name.Should().Be(_validEntity.Name.Value);
+```
+
+### 4.12 Mapping Validation
+
+When a handler maps an entity or input to a response DTO, assert at least two meaningful fields on the response value in the success test:
+
+```csharp
+result.IsSuccess.Should().BeTrue();
+result.Value.DoctorId.Should().Be(_command.DoctorId);   // from input
+result.Value.Disease.Should().Be(_command.Disease);     // from input
+```
+
+Prefer `result.Value.Field.Should().Be(_command.Field)` for command responses and `result.Value.Field.Should().Be(_validEntity.Field.Value)` for query responses. Do not assert framework-generated values (auto-ids, audit timestamps) unless domain-critical.
+
+### 4.13 Test Data Strategy
+
+- **Pre-built entities in base class**: only when used by 2+ test classes in the same module
+- **Inline data**: when data is unique to one test class or one `[Fact]` — build it in the test class constructor or directly in the test
+- **`Faker<T>.CustomInstantiator`**: for collection scenarios requiring multiple domain entities
+- **`const string`**: for fields constrained by complex regex (passwords, codes)
+- **Never**: use raw `Guid.NewGuid()` where a Value Object is expected — always use `GuidObject.New()` or domain factory methods
+
+```csharp
+// COLLECTION — use Faker<T>
+Faker<Diagnosis> diagnosisFaker = new Faker<Diagnosis>()
+    .CustomInstantiator(f => Diagnosis.Create(
+        GuidObject.Create(_validDoctor.Id.ToString()),
+        GuidObject.Create(_validPatient.Id.ToString()),
+        StringObject.Create(f.Commerce.ProductName()),
+        StringObject.Create(f.Lorem.Paragraph(10)),
+        DosageIntervals.EverySixHours.ToTimeSpan()));
+
+IReadOnlyList<Diagnosis> collection = diagnosisFaker.Generate(5);
+
+// EMPTY COLLECTION
+IReadOnlyList<Diagnosis> empty = [];
+```
+
+### 4.14 What NOT to Test
+
+Skip tests for:
+
+- **Framework behavior**: `ArgumentNullException` from constructor guards, NSubstitute internals
+- **Third-party libraries**: FluentValidation's own validation pipeline, EF Core, Bogus
+- **Trivial pure returns**: static collection methods with no failure path (e.g., `GetSpecialtyCollection` that returns a hardcoded enum list)
+- **Auto-generated audit fields**: `CreatedAt`, `UpdatedAt` timestamps
+- **Static `Map()` methods in isolation**: test the handler's output; do not unit test the mapping method itself
+- **Handlers with zero failure paths**: only the success `[Fact]` is needed
+
+### 4.15 Scalability of BaseTestSharedConfiguration
+
+- One `BaseTestSharedConfiguration` per module test project
+- Add to the base class only when a mock or entity is used by **2 or more** test classes
+- If the base class exceeds ~150 lines, split by dependency group using intermediate abstract classes:
+
+```csharp
+// Tier 1 — shared Faker and common entities only
+public abstract class BaseTestSharedConfiguration
+{
+    protected readonly Faker _faker;
+    protected readonly Entity _validEntity;
+    protected BaseTestSharedConfiguration() { ... }
+}
+
+// Tier 2 — handlers that also need message queue
+public abstract class BaseMessageQueueTestConfiguration
+    : BaseTestSharedConfiguration
+{
+    protected readonly IMessageQeueServices _messageQeueServicesMock;
+    protected BaseMessageQueueTestConfiguration() : base() { ... }
+}
+```
+
+- Never add a `Set_` method to the base class for a dependency that only one handler uses — inline it in the test class instead
+- If a mock is only needed by one test class, declare and initialize it inside that class, not in the base
+
+### 4.16 Stability and Maintainability
+
+- Build test entities using only the fields required for the test scenario — do not over-specify
+- Prefer matching on meaningful fields (`Arg.Is<T>(e => e.Name.Value == expected)`) rather than exhaustive field-by-field matching on every property
+- When domain rules change, tests should only fail if observable behavior changed — avoid brittle assertions on implementation details
+- Use `result.Error.Should().Be(EntityErrors.SpecificError)` for precise error matching; avoid matching only on `StatusCode` when multiple distinct errors share the same HTTP status code
+
+---
+
+## 5. Patterns Reference
+
+### 5.1 .csproj Template
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Bogus" Version="35.6.1" />
-    <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="FluentAssertions" Version="7.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="NSubstitute" Version="5.3.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.1">
+    <PackageReference Include="Bogus" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="relative-path-to-Application.csproj" />
+    <ProjectReference Include="relative-path-to-Features.csproj" />
     <ProjectReference Include="relative-path-to-Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -54,11 +319,9 @@ Generate unit tests for any service module's Application layer UseCases followin
 </Project>
 ```
 
-### 2.2a Internal Members — Granting Test Project Access
+### 5.1a InternalsVisibleTo (Domain .csproj)
 
-Before building the base class, scan all Domain entity files for `internal` members (methods, constructors, properties) that the test project needs to use.
-
-If any are found, add `InternalsVisibleTo` to the **Domain project's** `.csproj`:
+Add when Domain entity factory methods or members are `internal`:
 
 ```xml
 <ItemGroup>
@@ -66,288 +329,500 @@ If any are found, add `InternalsVisibleTo` to the **Domain project's** `.csproj`
 </ItemGroup>
 ```
 
-Alternatively, via `AssemblyInfo.cs` in the Domain project:
+Rule: do NOT change `internal` to `public` — use this mechanism instead.
 
-```csharp
-[assembly: InternalsVisibleTo("Services.{Module}.Application.UnitTests")]
-```
+### 5.2 BaseTestSharedConfiguration
 
-**Rules:**
-- Add one `InternalsVisibleTo` entry per test project that needs access.
-- Do NOT change `internal` members to `public` just to make tests compile — use this mechanism instead.
-- If the Domain project already has an `<InternalsVisibleTo>` block, append the new entry rather than creating a duplicate.
-
-### 2.3 Mocking Library: NSubstitute
-
-```csharp
-// Creation
-_repoMock = Substitute.For<IRepository>();
-
-// Setup — sync return
-_repoMock.Method(Arg.Any<T>()).Returns(value);
-
-// Setup — async return
-_repoMock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>()).Returns(value);
-
-// Setup — Task (no return value)
-_repoMock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-
-// Verification
-await _repoMock.Received(1).MethodAsync(Arg.Is<T>(f => f.Equals(expected)), default);
-```
-
-### 2.4 BaseTestSharedConfiguration Pattern
-
-This `abstract class` centralizes all shared state for every test class in the project.
-
-**Structure:**
 ```csharp
 public abstract class BaseTestSharedConfiguration
 {
     protected readonly Faker _faker;
 
-    // One field per interface dependency
-    protected readonly IRepository _repositoryMock;
-    protected readonly IExternalService _externalServiceMock;
+    // Mocks — one per interface dependency shared by 2+ test classes
+    protected readonly IEntityRepository _repositoryMock;
+    protected readonly IMessageQeueServices _messageQeueServicesMock;
+    protected readonly IHttpRequestProvider _httpRequestProviderMock;
 
-    // Pre-built valid entities
+    // Pre-built entities (used by 2+ test classes)
     protected readonly Entity _validEntity;
-    protected readonly Entity _validEntityWithOtherOwner; // for ownership checks
+    protected readonly Entity _validEntityWithOtherOwner;
+
+    // Pre-built cross-service responses
+    protected readonly DoctorQueueResponse _validDoctor;
+    protected readonly PatientQueueResponse _validPatient;
 
     protected BaseTestSharedConfiguration()
     {
         _faker = new();
 
-        _repositoryMock = Substitute.For<IRepository>();
-        _externalServiceMock = Substitute.For<IExternalService>();
+        _repositoryMock = Substitute.For<IEntityRepository>();
+        _messageQeueServicesMock = Substitute.For<IMessageQeueServices>();
+        _httpRequestProviderMock = Substitute.For<IHttpRequestProvider>();
 
-        // Build entities using domain factory methods + Value Objects
+        // Build using domain factory + Value Objects — never raw primitives
+        _validDoctor = DoctorQueueResponse.Map(
+            Guid.NewGuid(),
+            _faker.Person.FullName,
+            _faker.Internet.UserName(),
+            _faker.Random.Number(60),
+            DateTimeOffset.UtcNow);
+
+        _validPatient = PatientQueueResponse.Map(
+            Guid.NewGuid(),
+            _faker.Person.FullName,
+            _faker.Random.Number(80),
+            DateTimeOffset.UtcNow);
+
         _validEntity = Entity.Create(
-            GuidObject.New(),
-            StringObject.Create(_faker.Commerce.ProductName()),
-            ...);
+            GuidObject.Create(_validDoctor.Id.ToString()),
+            StringObject.Create(_faker.Commerce.ProductName()));
 
         _validEntityWithOtherOwner = Entity.Create(
-            GuidObject.New(), // different owner
-            ...);
+            GuidObject.New(), // different owner id
+            StringObject.Create(_faker.Commerce.ProductName()));
     }
 
     #region Repository
 
     public void Set_GetById_Success()
-        => _repositoryMock.ByIdAsync(
-                _validEntity.Id,
-                Arg.Any<CancellationToken>())
+        => _repositoryMock
+            .ByIdAsync(_validEntity.Id, Arg.Any<CancellationToken>())
             .Returns(_validEntity);
 
     public void Set_GetById_NotFound()
-        => _repositoryMock.ByIdAsync(
-                Arg.Any<EntityId>(),
-                Arg.Any<CancellationToken>())
+        => _repositoryMock
+            .ByIdAsync(Arg.Any<GuidObject>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<Entity>(EntityErrors.NotFound));
 
-    public void Set_Create_Success()
-        => _repositoryMock.CreateAsync(
-                Arg.Any<Entity>(),
-                Arg.Any<CancellationToken>())
+    public void Set_CreateAsync_Success()
+        => _repositoryMock
+            .CreateAsync(Arg.Any<Entity>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
+
+    #endregion
+
+    #region MessageQeueServices
+
+    public void Set_DoctorMessageQueue_Success()
+        => _messageQeueServicesMock
+            .GetDoctorByIdAsync(_validDoctor.Id, Arg.Any<CancellationToken>())
+            .Returns(_validDoctor);
+
+    public void Set_DoctorMessageQueue_NotFoundFailure()
+        => _messageQeueServicesMock
+            .GetDoctorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure<DoctorQueueResponse>(
+                Error.NotFound("doctorNotFound", "The doctor was not found")));
+
+    public void Set_DoctorMessageQueue_NullValueFailure()
+        => _messageQeueServicesMock
+            .GetDoctorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure<DoctorQueueResponse>(Error.NullValue));
+
+    #endregion
+
+    #region HttpRequestProvider
+
+    public void Set_GetContextCurrentUser_Success(CurrentRequestUser user)
+        => _httpRequestProviderMock
+            .GetContextCurrentUser()
+            .Returns(Result.Success(user));
+
+    public void Set_GetContextCurrentUser_UnauthorizedFailure()
+        => _httpRequestProviderMock
+            .GetContextCurrentUser()
+            .Returns(Result.Failure<CurrentRequestUser>(Error.Unauthorized()));
 
     #endregion
 }
 ```
 
 **Rules:**
-- Success `Set_` methods use the specific pre-built entity/id for argument matching
+
+- Success `Set_` methods match on the specific pre-built entity/id
 - Failure `Set_` methods use `Arg.Any<T>()` for broad matching
-- Methods are organized by `#region` per dependency group
-- Each method is a single expression body (no braces unless multiple lines are needed)
-- Return `Result.Failure<T>(DomainErrors.Xxx)`, `Result.Success(entity)`, or `Task.CompletedTask` as appropriate
+- Methods are single expression bodies where possible
+- Organized by `#region` per dependency group
+- Add `Set_CreateAsync_Success()` / `Set_UpdateAsync_Success()` / `Set_DeleteAsync_Success()` for write operations as needed
 
-**Constructor responsibilities:**
-```
-1. Initialize _faker = new()
-2. Create all mocks via Substitute.For<T>()
-3. Build valid entities using Value Objects (GuidObject.Create/New, StringObject.Create, EmailAddress.Create, etc.)
-4. Build alternative entities for edge-case scenarios (e.g., different owner)
-```
+### 5.3 Handler Test Class
 
-### 2.5 Handler Test Class Pattern
+**Command handler (direct write + cross-service validation):**
 
 ```csharp
-public sealed class {UseCaseName}CommandHandlerTest
+public sealed class CreateEntityCommandHandlerTest
     : BaseTestSharedConfiguration
 {
-    private readonly {UseCaseName}Command _command;
-    private readonly {UseCaseName}CommandHandler _handler;
+    private readonly CreateEntityCommand _command;
+    private readonly CreateEntityCommandHandler _handler;
 
-    public {UseCaseName}CommandHandlerTest()
+    public CreateEntityCommandHandlerTest()
     {
-        _command = new(/* use _validEntity fields and _faker data */);
+        _command = new(
+            _validDoctor.Id,
+            _validPatient.Id,
+            _faker.Commerce.ProductName(),
+            _faker.Lorem.Paragraph(5));
 
         _handler = new(
-            _repositoryMock,      // NSubstitute: no .Object needed
-            _externalServiceMock);
+            _repositoryMock,
+            _messageQeueServicesMock);
     }
 
     [Fact]
     public async Task Handle_Should_ReturnSuccessResult()
     {
         // arrange
-        Set_Dependency1_Success();
-        Set_Dependency2_Success();
+        Set_DoctorMessageQueue_Success();
+        Set_PatientMessageQueue_Success();
+        Set_CreateAsync_Success();
 
         // act
-        Result<TResponse> result = await _handler.Handle(_command, default);
+        Result<EntityResponse> result = await _handler.Handle(_command, default);
 
         // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetDoctorByIdAsync(Arg.Is<Guid>(id => id == _command.DoctorId), default);
+
+        await _messageQeueServicesMock.Received(1)
+            .GetPatientByIdAsync(Arg.Is<Guid>(id => id == _command.PatientId), default);
+
         await _repositoryMock.Received(1)
-            .MethodAsync(Arg.Is<T>(f => f.Prop.Equals(_command.Prop)), default);
+            .CreateAsync(Arg.Is<Entity>(e =>
+                e.DoctorId.Value == _command.DoctorId &&
+                e.Name.Value == _command.Name), default);
 
         result.IsSuccess.Should().BeTrue();
+        result.Value.DoctorId.Should().Be(_command.DoctorId);
+        result.Value.Name.Should().Be(_command.Name);
     }
 
     [Fact]
-    public async Task Handle_Should_ReturnFailedResult_{Reason}()
+    public async Task Handle_Should_ReturnFailedResult_WhenDoctorNotFound()
     {
         // arrange
-        Set_Dependency1_FailureScenario();
+        Set_DoctorMessageQueue_NotFoundFailure();
 
         // act
-        Result<TResponse> result = await _handler.Handle(_command, default);
+        Result<EntityResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        await _messageQeueServicesMock.Received(1)
+            .GetDoctorByIdAsync(Arg.Is<Guid>(id => id == _command.DoctorId), default);
+
+        await _repositoryMock.DidNotReceive()
+            .CreateAsync(Arg.Any<Entity>(), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_WhenDoctorIsNull()
+    {
+        // arrange
+        Set_DoctorMessageQueue_NullValueFailure();
+
+        // act
+        Result<EntityResponse> result = await _handler.Handle(_command, default);
+
+        // assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(Error.NullValue);
+    }
+}
+```
+
+**Query handler:**
+
+```csharp
+public sealed class GetEntityByIdQueryHandlerTest
+    : BaseTestSharedConfiguration
+{
+    private readonly GetEntityByIdQuery _query;
+    private readonly GetEntityByIdQueryHandler _handler;
+
+    public GetEntityByIdQueryHandlerTest()
+    {
+        _query = new(_validEntity.Id.Value);
+        _handler = new(_repositoryMock);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnSuccessResult()
+    {
+        // arrange
+        Set_GetById_Success();
+
+        // act
+        Result<EntityResponse> result = await _handler.Handle(_query, default);
 
         // assert
         await _repositoryMock.Received(1)
-            .MethodAsync(Arg.Is<T>(f => f.Equals(_command.Prop)), default);
+            .ByIdAsync(Arg.Is<GuidObject>(id => id.Value == _query.Id), default);
 
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Should().Be(_validEntity.Id.Value);
+        result.Value.Name.Should().Be(_validEntity.Name.Value);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnFailedResult_WhenEntityNotFound()
+    {
+        // arrange
+        Set_GetById_NotFound();
+
+        // act
+        Result<EntityResponse> result = await _handler.Handle(_query, default);
+
+        // assert
         result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(EntityErrors.NotFound);
         result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
     }
 }
 ```
 
 **Assertion patterns:**
+
 | Scenario | Assertion |
 |---|---|
 | Success | `result.IsSuccess.Should().BeTrue()` |
 | Failure | `result.IsFailure.Should().BeTrue()` |
 | HTTP status | `result.Error.StatusCode.Should().Be(StatusCodes.StatusXxx)` |
-| Specific error | `result.Error.Should().Be(DomainErrors.SpecificError)` |
+| Specific error | `result.Error.Should().Be(EntityErrors.SpecificError)` |
 | Null value error | `result.Error.Should().Be(Error.NullValue)` |
 | Collection has items | `result.Value.Any().Should().BeTrue()` |
 | Collection is empty | `result.Value.Any().Should().BeFalse()` |
-| Call verified | `await _mock.Received(1).Method(Arg.Is<T>(f => ...), default)` |
+| Response field from input | `result.Value.Field.Should().Be(_command.Field)` |
+| Response field from entity | `result.Value.Field.Should().Be(_validEntity.Field.Value)` |
+| Async call verified | `await _mock.Received(1).MethodAsync(Arg.Is<T>(f => f.Prop == expected), default)` |
+| Async call not made | `await _mock.DidNotReceive().MethodAsync(Arg.Any<T>(), default)` |
+| Sync call verified | `_mock.Received(1).Method(Arg.Any<T>())` |
 
-### 2.6 Validator Test Class Pattern
+### 5.4 Validator Test Class
 
 Validator tests are **standalone** — they do NOT inherit `BaseTestSharedConfiguration`.
 
 ```csharp
-public sealed class {Name}CommandValidatorTest
+public sealed class CreateEntityCommandValidatorTest
 {
     private readonly Faker _faker;
-    private readonly {Name}CommandValidator _validator;
+    private readonly CreateEntityCommandValidator _validator;
 
-    public {Name}CommandValidatorTest()
+    public CreateEntityCommandValidatorTest()
     {
         _faker = new();
-        _validator = new {Name}CommandValidator();
+        _validator = new CreateEntityCommandValidator();
     }
 
     [Fact]
-    public void {Name}CommandValidator_Should_AllOk()
+    public void Validate_Should_AllOk()
     {
         // arrange
-        {Name}Command command = new(/* valid data */);
+        CreateEntityCommand command = new(_faker.Commerce.ProductName(), Guid.NewGuid());
 
         // act
-        TestValidationResult<{Name}Command> result = _validator.TestValidate(command);
+        TestValidationResult<CreateEntityCommand> result = _validator.TestValidate(command);
 
         // assert
         result.ShouldNotHaveAnyValidationErrors();
     }
 
-    [Fact]
-    public void {Name}CommandValidator_Should_{Field}_{Rule}()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("a")] // below minimum length
+    public void Validate_Should_Fail_Name_WhenInvalid(string? name)
     {
         // arrange
-        {Name}Command command = new(/* invalid field */);
+        CreateEntityCommand command = new(name, Guid.NewGuid());
 
         // act
-        TestValidationResult<{Name}Command> result = _validator.TestValidate(command);
+        TestValidationResult<CreateEntityCommand> result = _validator.TestValidate(command);
 
         // assert
-        result.ShouldHaveValidationErrorFor(x => x.{Field});
-        result.Errors.Any(a => a.Equals(ValidationConstants.{Rule}));
+        result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 }
 ```
 
 **Validation rules to cover per field** (from `ValidationConstants`):
-- `FieldCantBeEmpty` — empty string `""`
+
+- `FieldCantBeEmpty` — `""`
 - `RequiredField` — `null`
 - `ShortField` — below minimum length
 - `LongField` — above maximum length
-- `UppercaseLetterRequired` — password without uppercase
-- `LowercaseLetterRequired` — password without lowercase
-- `DigitRequired` — password without digit
-- `PasswordSpecialCharacterRequired` — password without special char
-- `NewPasswordCannotBeTheSameAsOldOne` — cross-field rule
-- `ConfirmPasswordDontMatchWithNewPassword` — cross-field rule
+- `UppercaseLetterRequired`, `LowercaseLetterRequired`, `DigitRequired`, `PasswordSpecialCharacterRequired` — password rules
+- `NewPasswordCannotBeTheSameAsOldOne`, `ConfirmPasswordDontMatchWithNewPassword` — cross-field rules
 
-### 2.7 Test Coverage Requirements per UseCase
+### 5.5 NSubstitute Quick Reference
 
-**Command/Query Handlers:**
-1. Happy path — all dependencies succeed, verify all calls with `Received(1)`, assert `IsSuccess`
-2. One failure test per dependency call in the handler's execution flow
-3. Ownership/authorization failures — if handler checks the requesting user owns the resource
-4. `NullValue` failures — if handler validates null responses from external services
-5. Empty collection — for collection queries, test success with zero items
+```csharp
+// Create mock
+_mock = Substitute.For<IInterface>();
 
-**Validators:**
-1. Happy path — no validation errors
-2. One test per field per validation rule
+// Setup sync return
+_mock.Method(Arg.Any<T>()).Returns(value);
 
-## 3. Constraints
+// Setup async return (NSubstitute wraps Task automatically)
+_mock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>()).Returns(value);
 
-### Technical
-- .NET 8.0 · xUnit · FluentAssertions 7.x · Bogus 35.x · NSubstitute 5.x · FluentValidation
-- CQRS: handlers implement `IRequestHandler<TRequest, TResponse>` with `Handle(TRequest, CancellationToken)`
-- Result pattern: `Result` / `Result<T>` from `Shared.Common.Helper.ErrorsHandler`
-- Value Objects: `GuidObject`, `StringObject`, `EmailAddress`, etc. — from `Value.Objects.Helper`
-- Domain errors: static fields on `{Entity}Errors` classes (e.g., `DiagnosisErrors.NotFound`)
-- Shared errors: `Error.NullValue`, `Error.NotFound(code, msg)`, `Error.Unauthorized()`
-- `CancellationToken` is always passed as `default` in test invocations
+// Setup async return (explicit Task)
+_mock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(value));
 
-### Business
-- Each module has its own Domain: Entities, Errors, Abstractions (repositories/services), Enums
-- Cross-module data uses message queue services (`IMessageQeueServices`) returning `{Entity}QueueResponse`
-- Some commands require ownership validation (requesting user must own the resource)
+// Setup Result failure return
+_mock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>())
+    .Returns(Result.Failure<Dto>(EntityErrors.NotFound));
 
-## 4. Thinking Framework 🧠
+// Setup void Task
+_mock.MethodAsync(Arg.Any<T>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-- **Step 1: Discover dependencies.** Read `Domain/Abstractions/` to identify all repository and service interfaces. Read each handler's constructor to know which interfaces it receives.
-- **Step 2: Discover entities and value objects.** Read `Domain/Entities/` to understand factory methods (`Entity.Create(...)`). Note all parameters and their Value Object types.
-- **Step 3: Check for `internal` members.** Scan the Domain entity files for any method, constructor, or property marked `internal`. If any exist that the test project needs to invoke, add `InternalsVisibleTo` to the Domain `.csproj` — see Section 2.2a.
-- **Step 4: Discover errors.** Read `Domain/Errors/` to find all static error fields. Each error = one failure test case.
-- **Step 5: Map handler flow to test cases.** Read each `Handle` method. Each dependency call that can fail = one failure test. All calls succeeding = the success test.
-- **Step 6: Build BaseTestSharedConfiguration.** One mock per dependency, pre-built entities, `Set_` methods for every scenario found in steps 1–5.
-- **Step 7: Build handler tests.** Constructor builds command/query + handler. One `[Fact]` per execution path.
-- **Step 8: Build validator tests (if applicable).** Check if the Command file contains an inline validator class. If yes, create standalone validator test class covering all rules per field.
+// Verify async called once with condition
+await _mock.Received(1).MethodAsync(Arg.Is<T>(x => x.Id == expected), default);
 
-## 5. Implementation Plan
+// Verify async never called
+await _mock.DidNotReceive().MethodAsync(Arg.Any<T>(), default);
 
-- **Phase 1 — Scaffold:** Create project folder, `.csproj`, add project references to Application and Domain, add to solution. Scan Domain entities for `internal` members and add `InternalsVisibleTo` to the Domain `.csproj` if needed (see Section 2.2a).
-- **Phase 2 — BaseTestSharedConfiguration:** Read all handler constructors, entity factories, and error classes. Write the base class.
-- **Phase 3 — Handler Tests:** One file per UseCase handler. Cover all execution paths.
-- **Phase 4 — Validator Tests:** One file per validator, standalone class.
-- **Phase 5 — Verify:** `dotnet build` then `dotnet test`.
+// Verify sync called once
+_mock.Received(1).Method(Arg.Any<T>());
+```
 
-## 6. Edge Cases
+### 5.6 Cross-Service Validation Pattern
 
-- **Entities that need a service to construct** (e.g., `Credential.Create` requires `IHashingService`): pass the mock directly as a constructor argument.
-- **Bogus password limitations:** Bogus cannot generate passwords matching complex regex — use hardcoded `const string ValidPassword = "Qwerty1234@"`.
-- **Cross-module entities:** Build `{Entity}QueueResponse.Map(...)` using Bogus data inside the base class constructor.
-- **Multiple entity variants:** Always create `_validEntity` + `_validEntityWithOtherOwner` (using `GuidObject.New()` for the owner field) to cover ownership validation tests.
-- **Collection queries:** Use `Faker<T>.CustomInstantiator(...)` + `.Generate(N)` for non-empty, and `Enumerable.Empty<T>().ToList().AsReadOnly()` for empty.
-- **Handlers with no failure path:** Only the success test is needed (e.g., simple enum/static collection queries).
-- **Inline mock setup in `[Fact]`:** Acceptable when the setup is unique to a single test and does not belong in a reusable `Set_` method.
+When a handler calls `IMessageQeueServices` to validate entities from other modules, always test three scenarios per call: success, `NotFound`, and `NullValue`.
+
+```csharp
+// Base class — both failure variants required
+public void Set_DoctorMessageQueue_NotFoundFailure()
+    => _messageQeueServicesMock
+        .GetDoctorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        .Returns(Result.Failure<DoctorQueueResponse>(
+            Error.NotFound("doctorNotFound", "The doctor was not found")));
+
+public void Set_DoctorMessageQueue_NullValueFailure()
+    => _messageQeueServicesMock
+        .GetDoctorByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        .Returns(Result.Failure<DoctorQueueResponse>(Error.NullValue));
+
+// Test class — both [Fact]s required for each cross-service call
+[Fact]
+public async Task Handle_Should_ReturnFailedResult_WhenDoctorNotFound()
+{
+    Set_DoctorMessageQueue_NotFoundFailure();
+    Result<TResponse> result = await _handler.Handle(_command, default);
+    await _messageQeueServicesMock.Received(1)
+        .GetDoctorByIdAsync(Arg.Is<Guid>(id => id == _command.DoctorId), default);
+    result.IsFailure.Should().BeTrue();
+    result.Error.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+}
+
+[Fact]
+public async Task Handle_Should_ReturnFailedResult_WhenDoctorIsNull()
+{
+    Set_DoctorMessageQueue_NullValueFailure();
+    Result<TResponse> result = await _handler.Handle(_command, default);
+    result.IsFailure.Should().BeTrue();
+    result.Error.Should().Be(Error.NullValue);
+}
+```
+
+If a handler validates two cross-service entities sequentially (e.g., doctor then patient), the second entity's failure tests must also set up the first call as a success.
+
+### 5.7 ElasticSearch Side Effect Pattern
+
+When a command handler calls `IElasticSearchService<TDto>.AddOrUpdateAsync(...)` after the repository write:
+
+```csharp
+// Base class mock (add only if 2+ handlers in the module use it)
+protected readonly IElasticSearchService<EntityDto> _elasticSearchServiceMock;
+
+// Setup
+public void Set_ElasticSearch_AddOrUpdate_Success()
+    => _elasticSearchServiceMock
+        .AddOrUpdateAsync(
+            Arg.Any<string>(),
+            Arg.Any<EntityDto>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>())
+        .Returns(Task.CompletedTask);
+
+// Assert in success test — verify the DTO fields
+await _elasticSearchServiceMock.Received(1)
+    .AddOrUpdateAsync(
+        Arg.Any<string>(),
+        Arg.Is<EntityDto>(dto => dto.Name.Value == _command.Name),
+        Arg.Any<string>(),
+        default);
+
+// Assert NOT called in failure tests that exit before the write
+await _elasticSearchServiceMock.DidNotReceive()
+    .AddOrUpdateAsync(Arg.Any<string>(), Arg.Any<EntityDto>(), Arg.Any<string>(), default);
+```
+
+---
+
+## 6. Thinking Framework 🧠
+
+- **Step 1 — Dependencies:** Read the handler constructor — identify every injected type → one mock per **interface** in `BaseTestSharedConfiguration`; flag any concrete class injection (e.g., `MessageQeueServices` without interface) as untestable via mocking
+- **Step 2 — Entity factory:** Read `Domain/Entities/` to find `Create(...)` signature → build `_validEntity` and any cross-service responses using exact Value Object types (`GuidObject`, `StringObject`, `IntegerObject`, etc.)
+- **Step 3 — Internal access:** Scan Domain entity files for `internal` members → if any are needed by tests, add `InternalsVisibleTo` to Domain `.csproj`
+- **Step 4 — Error map:** Read `Domain/Errors/` → each error = one `Set_Xxx_Failure()` method + one `[Fact]`
+- **Step 5 — Handler flow:** Read each `Handle` method line by line → map every `if (result.IsFailure) return` and every boolean guard to a failure `[Fact]`; the path where all calls succeed is the success `[Fact]`
+- **Step 6 — Strong ID check:** Does the handler call `StrongId.Create(request.Id)`? → that call returns `Result<TId>`; add a `[Fact]` for invalid ID failure
+- **Step 7 — Write operations:** Does the handler call `CreateAsync`/`UpdateAsync`/`DeleteAsync`? → verify with `Received(1)` + `Arg.Is<TEntity>` on meaningful fields in the success test; verify with `DidNotReceive()` in failure tests that exit before the write; check whether `Commit()` is sync or `CommitAsync()` is async
+- **Step 8 — Cross-service check:** Does the handler call `IMessageQeueServices.GetXxx`? → add `NotFound` failure `[Fact]` + `NullValue` failure `[Fact]` per call; set up prior calls as success in sequential-dependency failure tests; verify with `Received(1)` in success and in relevant failure tests
+- **Step 9 — Search indexing:** Does the handler call `IElasticSearchService<T>.AddOrUpdateAsync`? → mock it, verify `Received(1)` in the success test and `DidNotReceive()` in failure tests before the write
+- **Step 10 — Ownership check:** Does the handler compare a caller's id against the entity's owner field? → create `_validEntityWithOtherOwner` using a different `GuidObject.New()` and add an unauthorized/bad-request failure `[Fact]`
+- **Step 11 — Validators:** Does the Command file contain an inline `*CommandValidator`? → create standalone validator test class with `[Theory]` for each field rule
+
+---
+
+## 7. Implementation Plan
+
+**Phase 1 — Scaffold**
+
+- Create `src/tests/Services.{Module}.Application.UnitTests/`
+- Create `.csproj` (central packages, project refs to Features + Domain)
+- Add project to solution via `dotnet sln add`
+- If Domain has internal members needed, add `InternalsVisibleTo` to Domain `.csproj`
+
+**Phase 2 — BaseTestSharedConfiguration**
+
+- Read all handler constructors, entity factories, and error classes
+- Identify mocks and entities needed by 2+ test classes → add only those to base class
+- Write abstract base class with mocks, pre-built entities, `Set_` methods organized by `#region`
+
+**Phase 3 — Handler Tests**
+
+- One file per UseCase handler under mirrored `UseCases/{UseCaseName}/` folder
+- Cover all execution paths per §4.9 (success + one `[Fact]` per failure)
+- Commands: verify writes + cross-service calls; Queries: verify returned data fields
+
+**Phase 4 — Validator Tests**
+
+- One file per UseCase that has an inline `*CommandValidator`
+- Standalone class, `[Theory]` per field rule
+
+**Phase 5 — Verify**
+
+- `dotnet build src/tests/Services.{Module}.Application.UnitTests`
+- `dotnet test src/tests/Services.{Module}.Application.UnitTests`
+- All tests green; zero skipped
+
+---
+
+## 8. Edge Cases
+
+- **Entity constructor is `internal`:** `Entity.Create(...)` may call `new Entity(...)` internally. If the test project cannot resolve it, add `InternalsVisibleTo` — do not make `internal` → `public`
+- **Password fields:** Bogus cannot reliably generate strings matching complex regex — use `const string ValidPassword = "Qwerty1234@"` hardcoded in the validator test and base class
+- **Cross-module queue responses:** Build `TQueueResponse` using its static `Map(...)` method with Bogus data inside the base constructor; mock `IMessageQeueServices` to return them
+- **Collection queries:** Use `Faker<T>.CustomInstantiator(f => Entity.Create(...)).Generate(n)` for non-empty; `IReadOnlyList<T> empty = []` for empty; note these repository methods return `IReadOnlyCollection<T>` directly, not `Result<T>`
+- **Handlers with no failure path:** Only the success `[Fact]` needed (e.g., pure static collection queries)
+- **Inline mock setup in `[Fact]`:** Acceptable when setup is unique to one test and does not belong in a reusable `Set_` method
+- **`IClockProvider`:** Mock and use `Set_Clock_Returns(DateTimeOffset fixedTime)` so time-sensitive domain logic is deterministic
+- **Ownership validation:** Create `_validEntityWithOtherOwner` using a different owner `GuidObject.New()`; stub `IHttpRequestProvider.GetContextCurrentUser()` to return the mismatched user id; assert `result.Error.StatusCode.Should().Be(StatusCodes.Status400BadRequest)` or `Status401Unauthorized` depending on the domain rule
+- **Strong ID creation failure:** If the handler calls `DoctorId.Create(request.Id)` — which returns `Result<TId>` — add a `[Fact]` that passes an invalid GUID string to hit this failure path
+- **Sync `Commit()` vs async `CommitAsync()`:** Some repositories expose sync `Commit()` — verify with `_repositoryMock.Received(1).Commit()` (no `await`); check the actual interface signature before writing the assertion
+- **Concrete class injection:** Some handlers inject `MessageQeueServices` as a concrete class rather than `IMessageQeueServices` — this cannot be mocked with NSubstitute; flag it and test only what can be isolated; prefer refactoring to inject the interface
+- **Sequential cross-service validation:** When a handler validates doctor then patient, the patient failure tests must call `Set_DoctorMessageQueue_Success()` in their arrange so the handler reaches the patient check

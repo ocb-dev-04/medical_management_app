@@ -154,7 +154,7 @@ Every testable branch in a handler's `Handle` method requires exactly one `[Fact
 | Strong ID creation failure (`StrongId.Create()`) | One `[Fact]` if the call is present |
 | Ownership mismatch check | One `[Fact]` with `_validEntityWithOtherOwner` |
 
-Scan the handler method line-by-line. Every `if (...) return Result.Failure<T>(...)` is a required test.
+Scan the handler method line-by-line. Every `if (...) return Result.Failure<T>(...)` is a required test. See §4.17 for the deterministic algorithm that generates the full list with arrange sections.
 
 ### 4.10 Async Behavior Rules
 
@@ -281,6 +281,81 @@ public abstract class BaseMessageQueueTestConfiguration
 - Prefer matching on meaningful fields (`Arg.Is<T>(e => e.Name.Value == expected)`) rather than exhaustive field-by-field matching on every property
 - When domain rules change, tests should only fail if observable behavior changed — avoid brittle assertions on implementation details
 - Use `result.Error.Should().Be(EntityErrors.SpecificError)` for precise error matching; avoid matching only on `StatusCode` when multiple distinct errors share the same HTTP status code
+
+### 4.17 Test Enumeration Algorithm
+
+A deterministic process to generate the complete `[Fact]` list for any handler. Apply it to every `Handle` method before writing a single test.
+
+**Step 1 — Extract checkpoints (C1…CN)**
+
+Read the `Handle` body top to bottom. Each fallible operation is a checkpoint:
+
+| Checkpoint type | Code pattern | Failure variants generated |
+|---|---|---|
+| Cross-service call | `IMessageQeueServices.GetXxxAsync` + `if (result.IsFailure)` | `NotFound` **+** `NullValue` → **2 tests** |
+| Repository read | `repository.ByIdAsync` + `if (found.IsFailure)` | `NotFound` → **1 test** |
+| Boolean guard | `if (exist) return Failure` | Guard triggered → **1 test** |
+| Strong ID creation | `StrongId.Create(id)` + `if (id.IsFailure)` | Invalid value → **1 test** |
+| Value Object creation | `EmailAddress.Create(x)` + `if (result.IsFailure)` | Invalid format → **1 test** |
+| Ownership check | `if (entity.OwnerId != callerId)` | Mismatch → **1 test** |
+
+Write operations (`CreateAsync`, `CommitAsync`, `Commit`, `AddOrUpdateAsync`) are **not** checkpoints — they appear only in assertions.
+
+**Step 2 — Generate the test list**
+
+```
+SUCCESS test (always exactly 1):
+  name:    Handle_Should_ReturnSuccessResult
+  arrange: Set_C1_Success() … Set_CN_Success() + Set_Write_Success() if needed
+  assert:  result.IsSuccess + mapping fields + Received(1) on every write op
+
+FAILURE tests (one block per checkpoint):
+  For K = 1 to N, for each failure variant V of CK:
+    name:    Handle_Should_ReturnFailedResult_When{CK_description}
+    arrange: Set_C1_Success() … Set_C(K-1)_Success()   ← all prior checkpoints succeed
+             Set_CK_Failure_V()                          ← this checkpoint fails
+    assert:  result.IsFailure
+             result.Error match (specific error or StatusCode)
+             DidNotReceive() on every write op that comes AFTER CK in the handler body
+```
+
+**Step 3 — Worked example (`CreateDiagnosisCommandHandler`)**
+
+```
+Handler body:
+  C1: GetDoctorByIdAsync   (cross-service) → 2 failure tests
+  C2: GetPatientByIdAsync  (cross-service) → 2 failure tests
+  W:  CreateAsync + Commit (write op)      → verified in asserts only
+
+Generated test list (5 total):
+
+ 1. Handle_Should_ReturnSuccessResult
+    arrange: Set_DoctorMQ_Success(), Set_PatientMQ_Success()
+    assert:  Received(1).CreateAsync(...), Received(1).Commit()
+             result.IsSuccess, result.Value.DoctorId, result.Value.Disease
+
+ 2. Handle_Should_ReturnFailedResult_WhenDoctorNotFound       ← C1 variant 1
+    arrange: Set_DoctorMQ_NotFoundFailure()
+    assert:  result.IsFailure, Status404
+             DidNotReceive().CreateAsync(...)
+
+ 3. Handle_Should_ReturnFailedResult_WhenDoctorIsNull         ← C1 variant 2
+    arrange: Set_DoctorMQ_NullValueFailure()
+    assert:  result.IsFailure, Error.NullValue
+             DidNotReceive().CreateAsync(...)
+
+ 4. Handle_Should_ReturnFailedResult_WhenPatientNotFound      ← C2 variant 1
+    arrange: Set_DoctorMQ_Success(), Set_PatientMQ_NotFoundFailure()
+    assert:  result.IsFailure, Status404
+             DidNotReceive().CreateAsync(...)
+
+ 5. Handle_Should_ReturnFailedResult_WhenPatientIsNull        ← C2 variant 2
+    arrange: Set_DoctorMQ_Success(), Set_PatientMQ_NullValueFailure()
+    assert:  result.IsFailure, Error.NullValue
+             DidNotReceive().CreateAsync(...)
+```
+
+This output matches `CreateDiagnosisCommandHandlerTest.cs` exactly. Apply the same algorithm to any handler to get its complete test list before writing any code.
 
 ---
 
@@ -768,7 +843,7 @@ await _elasticSearchServiceMock.DidNotReceive()
 - **Step 2 — Entity factory:** Read `Domain/Entities/` to find `Create(...)` signature → build `_validEntity` and any cross-service responses using exact Value Object types (`GuidObject`, `StringObject`, `IntegerObject`, etc.)
 - **Step 3 — Internal access:** Scan Domain entity files for `internal` members → if any are needed by tests, add `InternalsVisibleTo` to Domain `.csproj`
 - **Step 4 — Error map:** Read `Domain/Errors/` → each error = one `Set_Xxx_Failure()` method + one `[Fact]`
-- **Step 5 — Handler flow:** Read each `Handle` method line by line → map every `if (result.IsFailure) return` and every boolean guard to a failure `[Fact]`; the path where all calls succeed is the success `[Fact]`
+- **Step 5 — Handler flow:** Apply the §4.17 Test Enumeration Algorithm — extract all checkpoints in order, then generate the success test and one failure test per checkpoint variant; the arrange of each failure test sets all prior checkpoints as success
 - **Step 6 — Strong ID check:** Does the handler call `StrongId.Create(request.Id)`? → that call returns `Result<TId>`; add a `[Fact]` for invalid ID failure
 - **Step 7 — Write operations:** Does the handler call `CreateAsync`/`UpdateAsync`/`DeleteAsync`? → verify with `Received(1)` + `Arg.Is<TEntity>` on meaningful fields in the success test; verify with `DidNotReceive()` in failure tests that exit before the write; check whether `Commit()` is sync or `CommitAsync()` is async
 - **Step 8 — Cross-service check:** Does the handler call `IMessageQeueServices.GetXxx`? → add `NotFound` failure `[Fact]` + `NullValue` failure `[Fact]` per call; set up prior calls as success in sequential-dependency failure tests; verify with `Received(1)` in success and in relevant failure tests

@@ -13,7 +13,7 @@ Generate a complete, isolated unit test project for any module's Application lay
 - Folder structure mirrors the `UseCases/` hierarchy of the Features project
 - `.csproj` targets `net9.0` and uses central package management (no version numbers)
 - `InternalsVisibleTo` must be added to the **Domain** project when entity factory methods or members are `internal`
-- One `[Fact]` per execution path in every handler (success + one failure per fallible dependency call)
+- One `[Fact]` per distinct execution path per handler — success path always required; each fallible dependency call generates one `[Fact]` per distinct failure variant it can produce; independent failure combinations are NOT tested (see §4.9)
 - Validators: one test per field per validation rule; prefer `[Theory] + [InlineData]` for multiple invalid inputs
 - All mocks via NSubstitute — no `.Object` suffix needed
 - All assertions via FluentAssertions
@@ -141,20 +141,68 @@ public async Task Handle_Should_ReturnFailedResult_WhenEntityNotFound()
 // [Fact] public async Task Handle_Should_Throw_WhenRepositoryThrows() { ... }
 ```
 
-### 4.9 Execution Path Completeness Rule
+### 4.9 Execution Path Definition and Coverage Rule
 
-Every testable branch in a handler's `Handle` method requires exactly one `[Fact]`:
+**What is an execution path?**
 
-| Path type | Required test |
+An execution path is a unique sequence of statements from the first line of `Handle` to one `return` statement. Each distinct `return` is a separate path. There are four path categories:
+
+| Category | Description | Test required? |
+|---|---|---|
+| **Success** | All checkpoints pass; reaches the final `return Map(...)` or `return value` | Always — exactly 1 `[Fact]` |
+| **Failure** | An explicit guard or Result check exits early with `Result.Failure<T>` | Yes — 1 `[Fact]` per distinct failure variant |
+| **Dependency-driven** | A dependency's outcome changes the error returned (same branch, different payload) | Yes — 1 `[Fact]` per distinct observable outcome |
+| **Exception** | Unhandled exception propagates out of the handler | No — not tested in this architecture (see §4.8) |
+
+**Coverage Completeness Rule:**
+
+A handler's test suite is complete when ALL of the following hold:
+
+1. Exactly one success `[Fact]` exists — the path where every checkpoint passes
+2. Every explicit `return Result.Failure<T>(...)` in the handler body is reached by at least one `[Fact]`
+3. Every dependency returning `Result<T>` has one `[Fact]` per distinct failure it can produce
+4. No `[Fact]` tests a path that is unreachable given the handler's control flow
+
+**Dependency Path Awareness:**
+
+Each dependency call that returns `Result<T>` is a branch point. Enumerate its distinct failure outcomes:
+
+| Dependency | Distinct failure variants |
 |---|---|
-| All dependencies succeed | One success `[Fact]` |
-| Each `if (result.IsFailure) return` | One `[Fact]` per check |
-| Each boolean guard (`if (exist) return Failure`) | One `[Fact]` per guard |
-| Each cross-service `IMessageQeueServices` call | `NotFound` failure + `NullValue` failure |
-| Strong ID creation failure (`StrongId.Create()`) | One `[Fact]` if the call is present |
-| Ownership mismatch check | One `[Fact]` with `_validEntityWithOtherOwner` |
+| `IMessageQeueServices.GetXxxAsync` | `NotFound` + `NullValue` → **2 tests** |
+| `repository.ByIdAsync` | `NotFound` → **1 test** |
+| `StrongId.Create(id)` | Invalid input → **1 test** |
+| `repository.ExistAsync` (boolean guard) | Guard condition met → **1 test** |
+| `EmailAddress.Create(x)` / Value Object | Invalid format → **1 test** |
 
-Scan the handler method line-by-line. Every `if (...) return Result.Failure<T>(...)` is a required test. See §4.17 for the deterministic algorithm that generates the full list with arrange sections.
+Only generate tests for variants that produce **different observable outcomes** in the handler (different `Result.Error` or different code path reached). Two dependency failures that ultimately return the same error propagated unchanged do not need separate tests.
+
+**Implicit Paths:**
+
+| Implicit path | Test it? | Reason |
+|---|---|---|
+| Dependency returns `Error.NullValue` | Yes — if `IMessageQeueServices` can produce it | It is an explicit, documented failure variant |
+| Boolean guard where `true` exits early | Yes — one `[Fact]` for the exiting condition | The success test covers the non-exiting branch |
+| `CancellationToken` cancelled mid-call | No | Framework behavior, not a handler responsibility |
+| Invalid domain state after `Entity.Create(...)` | No | Domain factory enforces invariants; test the factory separately |
+| `null` reference inside a `Result<T>` value | Only if the handler explicitly checks it | Otherwise covered by `Error.NullValue` variant of the producing dependency |
+
+**Path Minimization — do not test failure combinations:**
+
+If C1 and C2 are independent checkpoints, there is no value in a test where both fail simultaneously. Short-circuit logic guarantees C2 is unreachable when C1 fails. The §4.17 algorithm enforces this: the failure test for CK always sets C1…C(K-1) as success, so only one variable changes per test.
+
+```
+// CORRECT — independent failures, tested independently
+Test A: C1 fails                 (C2 never reached — no arrange needed for C2)
+Test B: C1 succeeds, C2 fails    (C2 is now the variable)
+
+// WRONG — combinatorial; adds zero coverage
+Test C: C1 fails AND C2 also fails   ← never write this
+```
+
+**Quick mental model:** For each line in `Handle`, ask: *"What is called here? Can it fail? What distinct failures does it produce, and does the handler handle them differently?"* Each distinct "yes" is a checkpoint that generates at least one failure test.
+
+See §4.17 for the deterministic algorithm that generates the full list with arrange sections.
 
 ### 4.10 Async Behavior Rules
 
@@ -285,6 +333,8 @@ public abstract class BaseMessageQueueTestConfiguration
 ### 4.17 Test Enumeration Algorithm
 
 A deterministic process to generate the complete `[Fact]` list for any handler. Apply it to every `Handle` method before writing a single test.
+
+> **Mental model before you start:** Read each line of `Handle` and ask *"What is called here? Can it return a failure? What distinct failures does it produce? Does this handler treat them differently?"* Each distinct answer is a checkpoint (C). Lines that cannot fail are not checkpoints.
 
 **Step 1 — Extract checkpoints (C1…CN)**
 

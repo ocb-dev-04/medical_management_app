@@ -12,6 +12,7 @@ using Yarp.ReverseProxy.Configuration;
 using Doctor.Management.Gateway.Settings;
 using Doctor.Management.Gateway.AuthClient;
 using Doctor.Management.Gateway.ProxyConfig;
+using Doctor.Management.Gateway.HostedServices;
 
 namespace Doctor.Management.Gateway.Extensions;
 
@@ -51,6 +52,7 @@ public static class Services
         services.AddSingleton<InMemoryProxyConfig>();
         services.AddSingleton<ConsulProxyConfigProvider>();
         services.AddSingleton<IProxyConfigProvider, ConsulProxyConfigProvider>();
+        services.AddHostedService<ConsulDiscoveryHostedService>();
 
         return services;
     }

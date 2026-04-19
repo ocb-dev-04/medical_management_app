@@ -8,11 +8,7 @@ builder.AddServices();
 WebApplication app = builder.Build();
 
 app.UseRateLimiter();
-
-await app.AddDynamicRoutes();
-
 app.UseMiddleware<AuthenticationMiddleware>();
-
 app.MapReverseProxy();
 
 app.Run();

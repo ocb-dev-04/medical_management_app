@@ -3,31 +3,32 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Doctor.Management.Gateway.ProxyConfig;
 
-public class InMemoryProxyConfig 
+public sealed class InMemoryProxyConfig
     : IProxyConfig
 {
-    private readonly List<RouteConfig> _routes;
-    private readonly List<ClusterConfig> _clusters;
+    private readonly object _syncLock = new();
+    private List<RouteConfig> _routes = [];
+    private List<ClusterConfig> _clusters = [];
 
-    public InMemoryProxyConfig()
+    public IReadOnlyList<RouteConfig> Routes
     {
-        _routes = Enumerable.Empty<RouteConfig>().ToList();
-        _clusters = Enumerable.Empty<ClusterConfig>().ToList();
+        get { lock (_syncLock) return _routes.AsReadOnly(); }
     }
 
-    public IReadOnlyList<RouteConfig> Routes => _routes;
-
-    public IReadOnlyList<ClusterConfig> Clusters => _clusters;
+    public IReadOnlyList<ClusterConfig> Clusters
+    {
+        get { lock (_syncLock) return _clusters.AsReadOnly(); }
+    }
 
     public IChangeToken ChangeToken { get; private set; } = new CancellationChangeToken(new CancellationTokenSource().Token);
 
     public void Update(IEnumerable<RouteConfig> routes, IEnumerable<ClusterConfig> clusters)
     {
-        _routes.Clear();
-        _routes.AddRange(routes);
-
-        _clusters.Clear();
-        _clusters.AddRange(clusters);
+        lock (_syncLock)
+        {
+            _routes = routes.ToList();
+            _clusters = clusters.ToList();
+        }
 
         IChangeToken previousToken = ChangeToken;
         ChangeToken = new CancellationChangeToken(new CancellationTokenSource().Token);

@@ -1,13 +1,15 @@
-﻿using Yarp.ReverseProxy.Configuration;
+﻿using Consul;
+using Yarp.ReverseProxy.Configuration;
 
-using AgentService = Consul.AgentService;
 using IConsulClient = Consul.IConsulClient;
+using RouteConfig = Yarp.ReverseProxy.Configuration.RouteConfig;
+using DestinationConfig = Yarp.ReverseProxy.Configuration.DestinationConfig;
 
 namespace Doctor.Management.Gateway.ProxyConfig;
 
 public sealed class ConsulProxyConfigProvider : IProxyConfigProvider
 {
-    private readonly IConsulClient _consulClient; 
+    private readonly IConsulClient _consulClient;
     private readonly InMemoryProxyConfig _config;
     private readonly ILogger<ConsulProxyConfigProvider> _logger;
 
@@ -30,40 +32,47 @@ public sealed class ConsulProxyConfigProvider : IProxyConfigProvider
 
     public async Task UpdateRoutesAsync(CancellationToken cancellationToken = default)
     {
-        Consul.QueryResult<Dictionary<string, AgentService>>? services = await _consulClient.Agent.Services(cancellationToken);
-        List<RouteConfig> routes = services.Response.Select(s =>
-        {
-            AgentService value = s.Value;
-            return new RouteConfig
-            {
-                RouteId = $"{value.Service}-route",
-                ClusterId = $"{value.Service}-cluster",
-                Match = new RouteMatch { Path = $"/{value.Service}/{{**catch-all}}" }
-            };
-        }).ToList();
+        QueryResult<Dictionary<string, string[]>> catalog
+            = await _consulClient.Catalog.Services(cancellationToken);
 
-        List<ClusterConfig> clusters = services.Response.Select(s =>
-        {
-            AgentService value = s.Value;
-            return new ClusterConfig
-            {
+        Task<QueryResult<ServiceEntry[]>>[] healthTasks = catalog.Response.Keys
+            .Select(name => _consulClient.Health.Service(name, null, passingOnly: true, cancellationToken))
+            .ToArray();
+        await Task.WhenAll(healthTasks);
 
-                ClusterId = $"{value.Service}-cluster",
-                Destinations = new Dictionary<string, DestinationConfig>
-            {
-                {
-                    $"{value.Service}-destination",
-                    new DestinationConfig
-                    {
-                        Address = string.Format("{0}:{1}", value.Address, value.Port),
-                        Host = "http"
-                    }
-                }
-            }
-            };
-        }).ToList();
+        IEnumerable<IGrouping<string, ServiceEntry>> grouped = healthTasks
+            .SelectMany(t => t.Result.Response)
+            .GroupBy(e => e.Service.Service);
 
-        _logger.LogInformation("Routes added: {0} - Clusters added: {1}", routes.Count, clusters.Count);
+        List<RouteConfig> routes = BuildRoutes(grouped);
+        List<ClusterConfig> clusters = BuildClusters(grouped);
+
+        _logger.LogInformation(
+            "Routes updated: {RouteCount} routes, {ClusterCount} clusters.",
+            routes.Count,
+            clusters.Count);
         _config.Update(routes, clusters);
     }
+
+    private static List<RouteConfig> BuildRoutes(IEnumerable<IGrouping<string, ServiceEntry>> grouped)
+        => grouped
+            .Select(g => new RouteConfig
+            {
+                RouteId = $"{g.Key}-route",
+                ClusterId = $"{g.Key}-cluster",
+                Match = new RouteMatch { Path = $"/{g.Key}/{{**catch-all}}" }
+            })
+            .ToList();
+
+    private static List<ClusterConfig> BuildClusters(IEnumerable<IGrouping<string, ServiceEntry>> grouped)
+        => grouped
+            .Select(g => new ClusterConfig
+            {
+                ClusterId = $"{g.Key}-cluster",
+                Destinations = g.ToDictionary(
+                    e => $"{e.Service.Service}-{e.Service.ID}",
+                    e => new DestinationConfig { Address = $"http://{e.Service.Address}:{e.Service.Port}" }
+                )
+            })
+            .ToList();
 }
